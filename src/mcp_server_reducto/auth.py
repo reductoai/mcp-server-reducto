@@ -52,7 +52,7 @@ async def device_auth_login(*, force: bool = False) -> str:
     # Check for existing key
     existing_key = read_saved_api_key()
     if existing_key and not force:
-        _print(f"An API key is already saved at ~/.reducto/config.yaml")
+        _print("An API key is already saved at ~/.reducto/config.yaml")
         _print("Use --login --force to replace it, or just start the server.")
         return existing_key
 

@@ -17,7 +17,7 @@ jobs:
         with:
           fetch-depth: 0
       - uses: astral-sh/setup-uv@v4
-      - run: uv sync --frozen
+      - run: uv sync --frozen --extra dev
       - run: uv run pytest tests/ --ignore=tests/integration -v
 
   build:

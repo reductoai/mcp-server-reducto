@@ -158,9 +158,7 @@ class TestWriteApiKey:
 
     def test_preserves_other_clients(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         config_path = tmp_path / "config.yaml"
-        config_path.write_text(
-            "credentials:\n  reducto-cli:\n    api_key: cli-key\n"
-        )
+        config_path.write_text("credentials:\n  reducto-cli:\n    api_key: cli-key\n")
         monkeypatch.setattr("mcp_server_reducto.config.CONFIG_PATH", config_path)
 
         write_api_key("mcp-key")
@@ -183,11 +181,7 @@ class TestReadApiKeyFallback:
     def test_own_client_takes_priority(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         config_path = tmp_path / "config.yaml"
         config_path.write_text(
-            "credentials:\n"
-            "  mcp-server-reducto:\n"
-            "    api_key: mcp-key\n"
-            "  reducto-cli:\n"
-            "    api_key: cli-key\n"
+            "credentials:\n  mcp-server-reducto:\n    api_key: mcp-key\n  reducto-cli:\n    api_key: cli-key\n"
         )
         monkeypatch.setattr("mcp_server_reducto.config.CONFIG_PATH", config_path)
 
@@ -195,9 +189,7 @@ class TestReadApiKeyFallback:
 
     def test_falls_back_to_other_client(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         config_path = tmp_path / "config.yaml"
-        config_path.write_text(
-            "credentials:\n  reducto-cli:\n    api_key: cli-key\n"
-        )
+        config_path.write_text("credentials:\n  reducto-cli:\n    api_key: cli-key\n")
         monkeypatch.setattr("mcp_server_reducto.config.CONFIG_PATH", config_path)
 
         assert read_saved_api_key() == "cli-key"

@@ -137,9 +137,7 @@ class TestFormatClassifyResponse:
             SimpleNamespace(category="receipt", confidence=0.1),
         ]
         confidence = SimpleNamespace(categories=cat_conf)
-        response = SimpleNamespace(
-            job_id="cls123", duration=1.0, result=result, response_confidence=confidence
-        )
+        response = SimpleNamespace(job_id="cls123", duration=1.0, result=result, response_confidence=confidence)
 
         text = format_classify_response(response)
         data = json.loads(text)
@@ -151,9 +149,7 @@ class TestFormatClassifyResponse:
 class TestFormatEditResponse:
     def test_basic_formatting(self) -> None:
         usage = SimpleNamespace(num_pages=1)
-        response = SimpleNamespace(
-            document_url="https://storage.reducto.ai/edited.pdf", usage=usage
-        )
+        response = SimpleNamespace(document_url="https://storage.reducto.ai/edited.pdf", usage=usage)
 
         text = format_edit_response(response)
         data = json.loads(text)

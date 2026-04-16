@@ -3,19 +3,17 @@
 from __future__ import annotations
 
 import json
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from mcp_server_reducto.tools.parse import parse_document
-from mcp_server_reducto.tools.extract import extract_data
-from mcp_server_reducto.tools.split import split_document
 from mcp_server_reducto.tools.classify import classify_document
 from mcp_server_reducto.tools.edit import edit_document
-from mcp_server_reducto.tools.upload import upload_file
+from mcp_server_reducto.tools.extract import extract_data
 from mcp_server_reducto.tools.jobs import get_job, list_jobs
-
+from mcp_server_reducto.tools.parse import parse_document
+from mcp_server_reducto.tools.split import split_document
+from mcp_server_reducto.tools.upload import upload_file
 
 # ─── Parse ───────────────────────────────────────────────────────────
 
@@ -62,7 +60,7 @@ class TestParseDocument:
 
     @pytest.mark.asyncio
     async def test_with_chunk_mode(self, mock_ctx: MagicMock, mock_client: AsyncMock) -> None:
-        result = await parse_document(
+        await parse_document(
             document_url="https://example.com/doc.pdf",
             chunk_mode="variable",
             ctx=mock_ctx,
@@ -72,7 +70,7 @@ class TestParseDocument:
 
     @pytest.mark.asyncio
     async def test_with_agentic(self, mock_ctx: MagicMock, mock_client: AsyncMock) -> None:
-        result = await parse_document(
+        await parse_document(
             document_url="https://example.com/doc.pdf",
             agentic=["table", "figure"],
             ctx=mock_ctx,
@@ -85,7 +83,7 @@ class TestParseDocument:
 
     @pytest.mark.asyncio
     async def test_with_options_dict(self, mock_ctx: MagicMock, mock_client: AsyncMock) -> None:
-        result = await parse_document(
+        await parse_document(
             document_url="https://example.com/doc.pdf",
             options={"spreadsheet": {"clustering": "fast"}},
             ctx=mock_ctx,
@@ -95,7 +93,7 @@ class TestParseDocument:
 
     @pytest.mark.asyncio
     async def test_with_options_json_string(self, mock_ctx: MagicMock, mock_client: AsyncMock) -> None:
-        result = await parse_document(
+        await parse_document(
             document_url="https://example.com/doc.pdf",
             options='{"spreadsheet": {"clustering": "fast"}}',
             ctx=mock_ctx,
@@ -133,8 +131,8 @@ class TestParseDocument:
 
     @pytest.mark.asyncio
     async def test_sdk_error_handled(self, mock_ctx: MagicMock, mock_client: AsyncMock) -> None:
-        from reducto import BadRequestError
         import httpx
+        from reducto import BadRequestError
 
         mock_client.parse.run.side_effect = BadRequestError(
             message="Bad request",
@@ -466,8 +464,8 @@ class TestListJobs:
 
     @pytest.mark.asyncio
     async def test_sdk_error_handled(self, mock_ctx: MagicMock, mock_client: AsyncMock) -> None:
-        from reducto import AuthenticationError
         import httpx
+        from reducto import AuthenticationError
 
         mock_client.job.get_all.side_effect = AuthenticationError(
             message="Invalid key",

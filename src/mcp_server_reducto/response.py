@@ -135,16 +135,14 @@ def format_classify_response(response: Any) -> str:
     if hasattr(response, "duration"):
         result["duration_seconds"] = response.duration
 
-    if hasattr(response, "result") and response.result:
-        if hasattr(response.result, "category"):
-            result["category"] = response.result.category
+    if hasattr(response, "result") and response.result and hasattr(response.result, "category"):
+        result["category"] = response.result.category
 
     if hasattr(response, "response_confidence") and response.response_confidence:
         conf = response.response_confidence
         if hasattr(conf, "categories"):
             result["category_confidences"] = [
-                {"category": c.category, "confidence": c.confidence}
-                for c in conf.categories
+                {"category": c.category, "confidence": c.confidence} for c in conf.categories
             ]
 
     return _truncate_response(result)

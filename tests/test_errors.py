@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
-
 import httpx
-import pytest
 
 from mcp_server_reducto.errors import handle_sdk_error, mcp_error
 
