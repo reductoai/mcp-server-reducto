@@ -163,7 +163,8 @@ def main() -> None:
     if transport == "http":
         port = get_port()
         logger.info("Starting Reducto MCP server on HTTP port %d", port)
-        mcp.run(transport="streamable-http", port=port)
+        mcp.settings.port = port
+        mcp.run(transport="streamable-http")
     else:
         logger.info("Starting Reducto MCP server on stdio")
         mcp.run(transport="stdio")
