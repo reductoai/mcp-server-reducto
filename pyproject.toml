@@ -1,0 +1,51 @@
+[project]
+name = "mcp-server-reducto"
+dynamic = ["version"]
+description = "MCP server for the Reducto document processing API"
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = [
+    "mcp>=1.9.0",
+    "reductoai>=0.22.0",
+    "pydantic>=2.0",
+    "httpx>=0.23.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.8",
+    "pyright>=1.1",
+]
+
+[project.scripts]
+mcp-server-reducto = "mcp_server_reducto.server:main"
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/mcp_server_reducto/_version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mcp_server_reducto"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP", "B", "SIM"]
+
+[tool.pyright]
+pythonVersion = "3.11"
+typeCheckingMode = "basic"
