@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import os
 from pathlib import Path
 
@@ -123,10 +124,8 @@ def write_api_key(value: str, client_id: str = CLIENT_ID) -> None:
             lines.append(f"    {k}: {v}")
 
     CONFIG_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    try:
+    with contextlib.suppress(OSError):
         os.chmod(CONFIG_PATH, 0o600)
-    except OSError:
-        pass
 
 
 def get_api_key() -> str:

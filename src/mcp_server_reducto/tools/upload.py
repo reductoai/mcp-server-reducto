@@ -54,6 +54,7 @@ async def upload_file(
 
     except httpx.HTTPError as e:
         from mcp_server_reducto.errors import mcp_error
+
         return mcp_error(
             f"Failed to download file from {file_url}: {e}",
             guidance="Check that the URL is accessible and returns a valid file.",

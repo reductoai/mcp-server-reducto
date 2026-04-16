@@ -24,7 +24,8 @@ from mcp_server_reducto.validation import (
     description=(
         "Segment a document into labeled sections by topic. "
         "Example: split_document(document_url='https://example.com/contract.pdf', "
-        "categories=[{'name':'Terms','description':'Terms and conditions'},{'name':'Pricing','description':'Pricing tables'}]). "
+        "categories=[{'name':'Terms','description':'Terms and conditions'},"
+        "{'name':'Pricing','description':'Pricing tables'}]). "
         "Returns page ranges per category with confidence scores. "
         "Use split_rules for custom splitting guidance (e.g. 'Split at each new section heading'). "
         "Tip: pass jobid:// URLs from previous parse results to skip re-parsing."

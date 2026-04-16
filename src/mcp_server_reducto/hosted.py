@@ -12,7 +12,6 @@ import sys
 from contextvars import ContextVar
 
 from starlette.responses import JSONResponse
-from starlette.routing import Route
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 logger = logging.getLogger("reducto-mcp")

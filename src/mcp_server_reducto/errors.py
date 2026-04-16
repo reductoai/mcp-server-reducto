@@ -41,7 +41,8 @@ def _extract_detail(e: Exception) -> str:
         detail = body.get("detail") or body.get("message") or body.get("error")
         if detail:
             return str(detail)
-    return str(e.message) if hasattr(e, "message") else str(e)
+    msg = getattr(e, "message", None)
+    return str(msg) if msg else str(e)
 
 
 def handle_sdk_error(e: Exception) -> CallToolResult:

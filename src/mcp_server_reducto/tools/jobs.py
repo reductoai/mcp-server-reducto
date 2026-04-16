@@ -26,7 +26,12 @@ async def get_job(
     """Retrieve the status and result of a processing job."""
     if not job_id or not job_id.strip():
         return CallToolResult(
-            content=[TextContent(type="text", text="Error: job_id is required.\n\nWhat to do: Provide a valid job_id.")],
+            content=[
+                TextContent(
+                    type="text",
+                    text="Error: job_id is required.\n\nWhat to do: Provide a valid job_id.",
+                )
+            ],
             isError=True,
         )
 

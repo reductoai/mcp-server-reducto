@@ -12,12 +12,12 @@ from mcp_server_reducto.response import format_parse_response
 from mcp_server_reducto.server import mcp
 from mcp_server_reducto.tools.helpers import get_client
 from mcp_server_reducto.validation import (
+    VALID_CHUNK_MODES,
+    VALID_TABLE_FORMATS,
     ValidationError,
     parse_options_dict,
     validate_document_url,
     validate_enum,
-    VALID_CHUNK_MODES,
-    VALID_TABLE_FORMATS,
 )
 
 

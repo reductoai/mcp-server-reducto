@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v4
-      - run: uv sync --frozen
+      - run: uv sync --frozen --extra dev
       - run: uv run ruff check src/ tests/
       - run: uv run ruff format --check src/ tests/
 
@@ -21,7 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v4
-      - run: uv sync --frozen
+      - run: uv sync --frozen --extra dev
       - run: uv run pyright
 
   test:
@@ -34,5 +34,5 @@ jobs:
       - uses: astral-sh/setup-uv@v4
         with:
           python-version: ${{ matrix.python-version }}
-      - run: uv sync --frozen
+      - run: uv sync --frozen --extra dev
       - run: uv run pytest tests/ --ignore=tests/integration -v

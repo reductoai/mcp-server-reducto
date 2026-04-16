@@ -21,6 +21,7 @@ ATTRIBUTION_HEADERS: dict[str, str] = {
 def _make_client(api_key: str, *, transport: str | None = None) -> AsyncReducto:
     """Create an AsyncReducto client with attribution headers."""
     from reducto import AsyncReducto
+
     from mcp_server_reducto.config import get_base_url, get_timeout
 
     headers = dict(ATTRIBUTION_HEADERS)
