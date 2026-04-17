@@ -19,8 +19,7 @@ def _is_local_path(value: str) -> bool:
     """Check if the value looks like a local file path (not a URL)."""
     if value.startswith(("http://", "https://", "reducto://", "jobid://")):
         return False
-    # Absolute paths, relative paths, home-dir paths
-    return value.startswith(("/", "./", "../", "~")) or os.path.exists(value)
+    return value.startswith(("/", "./", "../", "~"))
 
 
 def _resolve_path(value: str) -> Path:
@@ -86,10 +85,16 @@ async def upload_file(
                     guidance="Provide a local file path (e.g. './doc.pdf') or a URL (e.g. 'https://example.com/doc.pdf').",
                 )
 
-            async with httpx.AsyncClient() as http_client:
-                download = await http_client.get(file_url, follow_redirects=True, timeout=60.0)
-                download.raise_for_status()
-                file_bytes = download.content
+            try:
+                async with httpx.AsyncClient() as http_client:
+                    download = await http_client.get(file_url, follow_redirects=True, timeout=60.0)
+                    download.raise_for_status()
+                    file_bytes = download.content
+            except httpx.HTTPError as e:
+                return mcp_error(
+                    f"Failed to download file from {file_url}: {e}",
+                    guidance="Check that the URL is accessible and returns a valid file.",
+                )
 
             # Determine extension from URL
             extension = None
@@ -102,10 +107,5 @@ async def upload_file(
         text = format_upload_response(response)
         return CallToolResult(content=[TextContent(type="text", text=text)])
 
-    except httpx.HTTPError as e:
-        return mcp_error(
-            f"Failed to download file from {file_url}: {e}",
-            guidance="Check that the URL is accessible and returns a valid file.",
-        )
     except Exception as e:
         return handle_sdk_error(e)
