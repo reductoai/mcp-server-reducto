@@ -78,22 +78,6 @@ jobs:
             echo "prerelease=false" >> "$GITHUB_OUTPUT"
           fi
 
-  publish-testpypi:
-    if: needs.is-prerelease.outputs.prerelease == 'true'
-    needs: [build, is-prerelease]
-    runs-on: ubuntu-latest
-    environment: testpypi
-    permissions:
-      id-token: write
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: dist/
-      - uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          repository-url: https://test.pypi.org/legacy/
-
   publish-pypi:
     needs: [build, is-prerelease]
     runs-on: ubuntu-latest
