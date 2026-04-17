@@ -61,10 +61,9 @@ def get_client(ctx: Context) -> AsyncReducto:
         return _make_client(per_request_key, transport="hosted")
 
     # Local mode: shared client from lifespan context
-    session = ctx.session
-    lifespan_context = getattr(session, "context", None)
-    if lifespan_context and hasattr(lifespan_context, "lifespan_context"):
-        lc = lifespan_context.lifespan_context
+    request_context = getattr(ctx, "_request_context", None)
+    if request_context is not None:
+        lc = getattr(request_context, "lifespan_context", None)
         if isinstance(lc, dict) and "reducto_client" in lc:
             return lc["reducto_client"]
 
