@@ -29,7 +29,6 @@ jobs:
           fetch-depth: 0
       - uses: astral-sh/setup-uv@v4
 
-      # For workflow_dispatch: create and push the tag
       - name: Create tag (manual dispatch)
         if: github.event_name == 'workflow_dispatch'
         run: |
@@ -58,44 +57,8 @@ jobs:
           name: dist
           path: dist/
 
-  is-prerelease:
+  publish:
     needs: build
-    runs-on: ubuntu-latest
-    outputs:
-      prerelease: ${{ steps.check.outputs.prerelease }}
-    steps:
-      - id: check
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="${{ github.event.inputs.version }}"
-          else
-            VERSION="${GITHUB_REF#refs/tags/v}"
-          fi
-          # PEP 440 pre-release: contains a, b, or rc
-          if [[ "$VERSION" =~ (a|b|rc)[0-9]+ ]]; then
-            echo "prerelease=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "prerelease=false" >> "$GITHUB_OUTPUT"
-          fi
-
-  publish-testpypi:
-    if: needs.is-prerelease.outputs.prerelease == 'true'
-    needs: [build, is-prerelease]
-    runs-on: ubuntu-latest
-    environment: testpypi
-    permissions:
-      id-token: write
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: dist/
-      - uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          repository-url: https://test.pypi.org/legacy/
-
-  publish-pypi:
-    needs: [build, is-prerelease]
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
