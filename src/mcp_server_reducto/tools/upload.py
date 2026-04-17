@@ -19,12 +19,7 @@ def _is_local_path(value: str) -> bool:
     """Check if the value looks like a local file path (not a URL)."""
     if value.startswith(("http://", "https://", "reducto://", "jobid://")):
         return False
-<<<<<<< HEAD
     return value.startswith(("/", "./", "../", "~"))
-=======
-    # Absolute paths, relative paths, home-dir paths
-    return value.startswith(("/", "./", "../", "~")) or os.path.exists(value)
->>>>>>> main
 
 
 def _resolve_path(value: str) -> Path:
@@ -90,7 +85,6 @@ async def upload_file(
                     guidance="Provide a local file path (e.g. './doc.pdf') or a URL (e.g. 'https://example.com/doc.pdf').",
                 )
 
-<<<<<<< HEAD
             try:
                 async with httpx.AsyncClient() as http_client:
                     download = await http_client.get(file_url, follow_redirects=True, timeout=60.0)
@@ -101,12 +95,6 @@ async def upload_file(
                     f"Failed to download file from {file_url}: {e}",
                     guidance="Check that the URL is accessible and returns a valid file.",
                 )
-=======
-            async with httpx.AsyncClient() as http_client:
-                download = await http_client.get(file_url, follow_redirects=True, timeout=60.0)
-                download.raise_for_status()
-                file_bytes = download.content
->>>>>>> main
 
             # Determine extension from URL
             extension = None
