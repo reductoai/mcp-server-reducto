@@ -300,6 +300,17 @@ def main() -> None:
     fixtures_root = REPO_ROOT / "evals" / "fixtures"
     fixtures = [fixtures_root / f for f in scenario.get("fixture", []) if (fixtures_root / f).exists()]
 
+    # Prepend the shared setup/usage prelude so every scenario sees the reducto mcp setup doc.
+    # Keeps scenarios focused on task-specific content; central update point for the prelude.
+    prelude_path = REPO_ROOT / "evals" / "scenarios" / "_setup_prelude.md"
+    prelude = prelude_path.read_text() if prelude_path.exists() else ""
+    # Harness note to the agent: mcp is already wired in this session, no need to re-add.
+    harness_note = (
+        "\n> **Note for this session:** the reducto mcp is already installed and connected "
+        "(tools available as `mcp__reducto__*`). skip step 1 and 2 above — go straight to using the tools.\n"
+    )
+    seed = f"{prelude}{harness_note}\n---\n\n## Task\n\n{scenario['seed_prompt']}" if prelude else scenario["seed_prompt"]
+
     run_id = uuid.uuid4().hex[:8]
     out_dir = args.out or (REPO_ROOT / "evals" / "reports" / run_id / f"{scenario_id}__claude_code__{args.model}")
 
@@ -327,7 +338,9 @@ def main() -> None:
 
     print(f"[harness] running {scenario_id} on claude-code ({args.model})")
     print(f"[harness] working dir: {wd}")
-    result = harness.run(scenario["seed_prompt"], wd, on_event=on_event)
+    if prelude:
+        print(f"[harness] prelude prepended ({len(prelude)} chars)")
+    result = harness.run(seed, wd, on_event=on_event)
     result.write(out_dir)
 
     # copy generated_app snapshot into out_dir
