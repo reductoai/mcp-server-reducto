@@ -1,0 +1,120 @@
+id: python_sdk__extract__pythoninvoices
+environment: python_sdk
+feature: extract
+mode: greenfield
+source: ported from testapps/pythoninvoices
+
+seed_prompt: |
+  lets install the reducto mcp and set it up so it invokes the reducto python sdk.
+  i want to build a basic python webapp, that takes a list of invoices and inputs
+  them into a spreadsheet, that classifies each invoice by category, so we can see
+  the expenditure of a business over time and a breakdown of categories its
+  spending on.
+
+fixture:
+  - invoices/sample_invoice_1.pdf
+  - invoices/sample_invoice_2.pdf
+
+rubric:
+  stand_up:
+    - id: reducto_installed
+      desc: reducto python sdk listed as a dependency
+      kind: grep
+      in: "**/*.{toml,txt,cfg}"
+      pattern: '(^|[^a-z])reducto([^a-z]|$)'
+    - id: reducto_client_instantiated
+      desc: reducto.Reducto() client instantiated somewhere in the codebase
+      kind: grep
+      in: "**/*.py"
+      pattern: 'reducto\.Reducto\('
+    - id: reducto_code_compiles
+      desc: reducto-touching code imports cleanly
+      kind: shell
+      cmd: "python -c 'import ast, pathlib; [ast.parse(p.read_text()) for p in pathlib.Path(\".\").rglob(\"*.py\")]'"
+      timeout: 30
+    - id: no_hardcoded_api_key
+      desc: api key not hardcoded in source
+      kind: not_grep
+      in: "**/*.py"
+      pattern: 'REDUCTO_API_KEY\s*=\s*"[^"]'
+      tags: [auth]
+
+  config_knowledge:
+    - id: uses_extract_run
+      desc: uses client.extract.run with a schema
+      kind: judge
+      tags: [right_tool]
+      paths: ["**/*.py"]
+      prompt: |
+        does the python code call client.extract.run(input=..., instructions={schema: ...})
+        for structured extraction? falling back to raw http or using client.parse for
+        schema extraction fails this check.
+    - id: invoice_schema_defined
+      desc: extract schema captures invoice fields
+      kind: judge
+      tags: [schema_quality]
+      paths: ["**/*.py"]
+      prompt: |
+        is a json schema passed to extract with at minimum vendor, invoice_date, total,
+        and category? a missing or trivial schema fails this.
+    - id: handles_urlresult
+      desc: handles URLResult from extract
+      kind: judge
+      tags: [urlresult, response_shape]
+      paths: ["**/*.py"]
+      prompt: |
+        extract responses can be inline or a URLResult (presigned url). does the code
+        check result type and fetch/surface the url accordingly? assuming inline silently
+        should fail.
+    - id: aggregation_by_category
+      desc: aggregation computes totals broken down by category
+      kind: judge
+      paths: ["**/*.py"]
+      prompt: |
+        is there code that aggregates extracted invoices — at minimum a breakdown by
+        category and a total? a stubbed or missing aggregator fails.
+
+  mcp_usage:
+    - id: consulted_mcp
+      desc: agent invoked at least one reducto mcp tool
+      kind: tool_used
+      pattern: "^mcp__reducto__"
+      min_count: 1
+    - id: used_upload_tool
+      desc: agent called the mcp upload tool
+      kind: tool_used
+      pattern: "mcp__reducto__upload"
+    - id: used_extract_tool
+      desc: agent called the mcp extract tool
+      kind: tool_used
+      pattern: "mcp__reducto__extract"
+      tags: [right_tool]
+    - id: judge_engagement
+      desc: agent used the mcp as a reference throughout
+      kind: judge_transcript
+      prompt: |
+        did the agent treat the reducto mcp as a reference (tools called to validate
+        schemas, response shapes, options) or invoke it once at setup and code from memory?
+        one-and-done fails.
+
+  pass_threshold: 0.8
+
+known_failure_signals:
+  - id: hand_parsed_config_yaml
+    desc: agent hand-parses ~/.reducto/config.yaml for the api key (anti-pattern)
+    kind: grep
+    in: "**/*.py"
+    pattern: '\.reducto/config\.yaml'
+    penalizes: [stand_up, mcp_usage]
+    tags: [auth]
+  - id: rolled_raw_http_instead_of_sdk
+    desc: agent ignored the python sdk and wrote raw requests/httpx to a reducto host
+    kind: grep
+    in: "**/*.py"
+    pattern: 'requests\.(post|get)\(["\x27]https?://[^"\x27]*reducto|httpx\.(post|get)\(["\x27]https?://[^"\x27]*reducto'
+    penalizes: [stand_up, config_knowledge]
+    tags: [right_tool]
+notes: |
+  real app tripped hand_parsed_config_yaml — literally
+  open(Path.home() / ".reducto/config.yaml").read().split("api_key: ")[1].strip().
+  the mcp should steer the agent to either REDUCTO_API_KEY env or client auto-resolution.

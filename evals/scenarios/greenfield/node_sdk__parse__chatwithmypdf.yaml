@@ -14,30 +14,18 @@ fixture:
 
 rubric:
   stand_up:
-    - id: nextjs_scaffolded
-      desc: nextjs app scaffolded with package.json + next config
-      kind: file_exists
-      path: package.json
     - id: reductoai_installed
       desc: reductoai node sdk listed as dependency
       kind: grep
       in: package.json
       pattern: '"reductoai"'
-    - id: upload_route_exists
-      desc: api/upload route file exists
-      kind: file_exists
-      path: app/api/upload/route.ts
-    - id: chat_route_exists
-      desc: api/chat route file exists
-      kind: file_exists
-      path: app/api/chat/route.ts
-    - id: upload_ui_exists
-      desc: frontend page includes a file input or upload component
+    - id: reducto_client_instantiated
+      desc: reducto client instantiated somewhere in the codebase
       kind: grep
-      in: app/page.tsx
-      pattern: 'type="file"|<input'
-    - id: build_passes
-      desc: nextjs build passes
+      in: "app/**/*.ts"
+      pattern: "new Reducto"
+    - id: reducto_code_compiles
+      desc: reducto-touching code compiles (full app build as a proxy)
       kind: shell
       cmd: "npm install && npx next build"
       timeout: 180
@@ -46,53 +34,90 @@ rubric:
       kind: not_grep
       in: "app/**/*.ts"
       pattern: 'REDUCTO_API_KEY\s*=\s*"[^"]'
+      tags: [auth]
 
   config_knowledge:
-    - id: uses_reducto_client
-      desc: instantiates the reducto node client
-      kind: grep
-      in: "app/api/**/*.ts"
-      pattern: "new Reducto"
     - id: uses_upload_then_parse
       desc: calls upload then parse.run with file_id (not raw file path)
       kind: judge
+      tags: [params_shape]
+      paths: ["app/api/upload/route.ts", "app/api/**/*.ts"]
       prompt: |
-        does the upload route use the pattern: client.upload({file}) → client.parse.run({input: upload.file_id})?
+        does the code use the pattern: client.upload({file}) → client.parse.run({input: upload.file_id})?
         it should not pass a local filesystem path to parse.run.
+        note: if the code is rolling raw http instead of using the reducto node sdk,
+        this check should fail (even if the http shape looks plausible) since the scenario
+        is specifically about the node sdk.
     - id: handles_urlresult
-      desc: handles the case where parse returns a presigned URL instead of inline chunks
+      desc: handles the case where parse returns a presigned URL
       kind: judge
+      tags: [urlresult, response_shape]
+      paths: ["app/api/upload/route.ts", "app/api/**/*.ts"]
       prompt: |
-        parse.run can return result.type === "full" (inline chunks) or a URLResult (presigned url).
-        does the code either fetch the URL when result.type !== "full", or explicitly surface it to the user?
-        silently assuming "full" and crashing on URLResult should fail this check.
+        parse responses can be inline (result.type === "full" with chunks) or a URLResult
+        (presigned url). does the code either fetch the url when result.type !== "full",
+        or explicitly surface it to the user? silently assuming "full" and crashing on
+        URLResult should fail this check.
     - id: chat_uses_parsed_text
-      desc: chat route actually feeds the parsed text to the llm (not stub/hallucinated)
+      desc: chat route feeds parsed text to the llm (not stubbed)
       kind: judge
+      paths: ["app/api/chat/route.ts", "app/api/**/*.ts"]
       prompt: |
         does /api/chat send the parsed document text to the llm as context?
         a stubbed chat that ignores the upload fails this.
+
+  mcp_usage:
+    - id: consulted_mcp
+      desc: agent invoked at least one reducto mcp tool
+      kind: tool_used
+      pattern: "^mcp__reducto__"
+      min_count: 1
+    - id: used_upload_tool
+      desc: agent called the mcp upload tool
+      kind: tool_used
+      pattern: "mcp__reducto__upload"
+      tags: [params_shape]
+    - id: used_parse_tool
+      desc: agent called the mcp parse tool
+      kind: tool_used
+      pattern: "mcp__reducto__parse"
+    - id: judge_engagement
+      desc: agent used the mcp as a reference throughout, not just at setup
+      kind: judge_transcript
+      prompt: |
+        look at how the agent used the reducto mcp across the whole conversation.
+        did the agent treat it as a reference (calling mcp tools to validate shapes, discover options,
+        confirm response formats) or just invoke it once at setup and then code from memory?
+        reference-style usage passes. one-and-done usage fails.
 
   pass_threshold: 0.8
 
 known_failure_signals:
   - id: file_param_cast_hack
-    desc: casts upload({file}) to `as unknown as {file: string}` to get around node sdk types
+    desc: "casts upload({file}) to `as unknown as {file: string}` to get around node sdk types"
     kind: grep
     in: "app/api/**/*.ts"
     pattern: 'as unknown as \{\s*file:\s*string'
+    penalizes: [config_knowledge]
+    tags: [params_shape]
+
   - id: urlresult_bailout
     desc: explicitly errors out on URLResult instead of handling it
     kind: grep
     in: "app/api/**/*.ts"
     pattern: "not supported in this barebones|URL result; not supported"
+    penalizes: [config_knowledge]
+    tags: [urlresult, response_shape]
+
   - id: hand_parsed_config_yaml
     desc: agent hand-parses ~/.reducto/config.yaml to find the api key
     kind: grep
     in: "**/*.{ts,tsx,js,mjs}"
     pattern: '\.reducto/config\.yaml'
+    penalizes: [stand_up, mcp_usage]
+    tags: [auth]
 
 notes: |
   canonical scenario — first ported from real conversation history.
-  the real app hit file_param_cast_hack and urlresult_bailout. those are the
-  fingerprints we want the mcp to prevent.
+  the real app hit file_param_cast_hack and urlresult_bailout. those are
+  fingerprints the mcp should prevent.

@@ -1,0 +1,124 @@
+id: http__edit__pythonchatwithpdf
+environment: http
+feature: edit
+mode: greenfield
+source: ported from testapps/pythonchatwithpdf
+
+seed_prompt: |
+  i'm looking to create an application where i can edit documents. i should be able
+  to upload one, see it in an editing interface, then submit prompts in a sidebar
+  chat interface that would then run reducto api edit calls on it. use the rest api.
+  python streamlit frontend.
+
+fixture:
+  - generic/sample.pdf
+
+rubric:
+  stand_up:
+    - id: http_client_installed
+      desc: requests or httpx listed as a dependency
+      kind: grep
+      in: "**/*.{toml,txt,cfg}"
+      pattern: "requests|httpx"
+    - id: correct_base_url
+      desc: uses api.reducto.ai as the base url (not platform.reducto.ai)
+      kind: grep
+      in: "**/*.py"
+      pattern: 'api\.reducto\.ai'
+      tags: [base_url]
+    - id: reducto_code_compiles
+      desc: python code imports cleanly
+      kind: shell
+      cmd: "python -c 'import ast, pathlib; [ast.parse(p.read_text()) for p in pathlib.Path(\".\").rglob(\"*.py\")]'"
+      timeout: 30
+    - id: no_hardcoded_api_key
+      desc: api key not hardcoded in source
+      kind: not_grep
+      in: "**/*.py"
+      pattern: 'api_key\s*=\s*"(sk|r)_'
+      tags: [auth]
+
+  config_knowledge:
+    - id: calls_edit_endpoint
+      desc: makes a POST to /edit on the reducto api
+      kind: judge
+      tags: [right_tool, endpoint_shape]
+      paths: ["**/*.py"]
+      prompt: |
+        does the code post to the reducto /edit endpoint with document_url +
+        edit_instructions (or equivalent)? if no /edit call exists, fail.
+    - id: caches_form_schema_across_edits
+      desc: reuses form_schema returned from first edit on subsequent edits
+      kind: judge
+      tags: [edit_best_practice, perf]
+      paths: ["**/*.py"]
+      prompt: |
+        the reducto /edit endpoint returns a form_schema that should be passed back
+        on subsequent edits of the same document for faster and more accurate results.
+        does the app stash the form_schema (e.g. in session state) and pass it on
+        subsequent edits? omitting form_schema on every call fails this check.
+    - id: upload_returns_file_id
+      desc: upload returns a file_id that is used as input to /edit
+      kind: judge
+      tags: [params_shape]
+      paths: ["**/*.py"]
+      prompt: |
+        does the upload flow capture file_id (or equivalent reference) and pass it
+        as document_url / input to the edit call? passing a local filesystem path fails.
+    - id: surfaces_edit_output
+      desc: the edited document is surfaced back to the user (download / preview)
+      kind: judge
+      paths: ["**/*.py"]
+      prompt: |
+        after an edit call succeeds, is the resulting document surfaced to the user
+        (download button, embedded preview, or similar)? a chat that only shows text
+        without the edited doc fails.
+
+  mcp_usage:
+    - id: consulted_mcp
+      desc: agent invoked at least one reducto mcp tool
+      kind: tool_used
+      pattern: "^mcp__reducto__"
+      min_count: 1
+    - id: used_edit_tool
+      desc: agent called the mcp edit tool
+      kind: tool_used
+      pattern: "mcp__reducto__edit"
+      tags: [right_tool]
+    - id: used_upload_tool
+      desc: agent called the mcp upload tool
+      kind: tool_used
+      pattern: "mcp__reducto__upload"
+    - id: judge_engagement
+      desc: agent used the mcp as a reference throughout
+      kind: judge_transcript
+      prompt: |
+        did the agent lean on the reducto mcp to discover endpoints, payload shapes,
+        and best practices (form_schema caching in particular), or invoke it once at
+        setup and code from memory?
+
+  pass_threshold: 0.8
+
+known_failure_signals:
+  - id: wrong_base_url_platform
+    desc: uses platform.reducto.ai as base url (wrong — it's api.reducto.ai)
+    kind: grep
+    in: "**/*.py"
+    pattern: 'platform\.reducto\.ai'
+    penalizes: [stand_up, config_knowledge]
+    tags: [base_url]
+  - id: no_form_schema_caching
+    desc: edit call never threads form_schema through — every call starts fresh
+    kind: judge
+    paths: ["**/*.py"]
+    prompt: |
+      does the edit call flow *never* pass form_schema from a prior response on
+      subsequent calls? (i.e. each edit starts from scratch.) if so, trip this.
+      if form_schema is stored in session state and passed on later calls, do not trip.
+    penalizes: [config_knowledge]
+    tags: [edit_best_practice, perf]
+
+notes: |
+  real app hit wrong_base_url_platform. the form_schema caching in the real app is
+  partial — declared in session_state but the edit_document call in reducto.py only
+  passes it when caller provides it, and the caller path doesn't always do so.

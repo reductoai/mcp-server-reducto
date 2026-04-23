@@ -9,3 +9,6 @@ build/
 .ruff_cache/
 .pyright/
 src/mcp_server_reducto/_version.py
+
+# eval run artifacts — only aggregate .md reports in evals/reports/ get committed
+evals/reports/*/
