@@ -183,7 +183,9 @@ def _check_shell(ctx: CheckContext, check: dict[str, Any]) -> CheckResult:
 def _check_judge(ctx: CheckContext, check: dict[str, Any]) -> CheckResult:
     from evals.judge import judge
     paths = check.get("paths") or check.get("path_globs") or ["**/*.ts", "**/*.tsx", "**/*.py", "**/*.js", "**/*.mjs"]
-    v = judge(check["prompt"], app_dir=ctx.app_dir, paths=paths)
+    # Pass the transcript too — the judge's system prompt treats correct mcp tool usage
+    # as equivalent evidence to correct sdk/http code in the generated files.
+    v = judge(check["prompt"], app_dir=ctx.app_dir, paths=paths, transcript=ctx.transcript)
     return _result(check, kind="judge", passed=v.passed, detail=v.reasoning)
 
 

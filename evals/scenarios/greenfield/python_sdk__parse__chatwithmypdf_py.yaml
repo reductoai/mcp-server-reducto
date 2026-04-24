@@ -1,0 +1,116 @@
+id: python_sdk__parse__chatwithmypdf_py
+environment: python_sdk
+feature: parse
+mode: greenfield
+source: authored to cover the python_sdk × parse cell (no matching testapp — mirrors chatwithmypdf's shape, python sdk)
+
+seed_prompt: |
+  build a basic python streamlit app that lets me upload a pdf, parses it with
+  reducto, and then lets me chat with the document in a sidebar. use the reducto
+  python sdk (not raw rest).
+
+fixture:
+  - generic/sample.pdf
+
+rubric:
+  stand_up:
+    - id: reducto_installed
+      desc: reducto python sdk listed as a dependency
+      kind: grep
+      in: "**/*.{toml,txt,cfg}"
+      pattern: '(^|[^a-z])reducto([^a-z]|$)'
+    - id: reducto_client_instantiated
+      desc: reducto.Reducto() client instantiated somewhere in the codebase
+      kind: grep
+      in: "**/*.py"
+      pattern: 'reducto\.Reducto\('
+    - id: reducto_code_compiles
+      desc: python code imports cleanly
+      kind: shell
+      cmd: "python -c 'import ast, pathlib; [ast.parse(p.read_text()) for p in pathlib.Path(\".\").rglob(\"*.py\")]'"
+      timeout: 30
+    - id: no_hardcoded_api_key
+      desc: api key not hardcoded in source
+      kind: not_grep
+      in: "**/*.py"
+      pattern: 'api_key\s*=\s*"(sk|r)_'
+      tags: [auth]
+
+  config_knowledge:
+    - id: uses_upload_then_parse
+      desc: calls client.upload then client.parse.run with file_id (not a local filesystem path)
+      kind: judge
+      tags: [params_shape, right_tool]
+      paths: ["**/*.py"]
+      prompt: |
+        does the code call client.upload(file=...) and then client.parse.run(input=<file_id>)?
+        if the code passes a local filesystem path directly to parse.run, or rolls raw http,
+        fail this check.
+    - id: handles_urlresult
+      desc: handles URLResult from parse (large docs return a presigned url)
+      kind: judge
+      tags: [urlresult, response_shape]
+      paths: ["**/*.py"]
+      prompt: |
+        parse responses can be inline chunks (result.type == "full") or a URLResult
+        (result.type == "url" with a presigned url). does the code branch on result.type
+        and fetch the url when present? silently assuming inline fails this check.
+    - id: chat_uses_parsed_text
+      desc: the chat / llm flow actually uses the parsed text as context (not stubbed)
+      kind: judge
+      paths: ["**/*.py"]
+      prompt: |
+        does the chat/llm flow send the parsed document text to the llm as context?
+        a stubbed chat that ignores the parse output fails this.
+
+  mcp_usage:
+    - id: consulted_mcp
+      desc: agent invoked at least one reducto mcp tool
+      kind: tool_used
+      pattern: "^mcp__reducto__"
+      min_count: 1
+    - id: used_upload_tool
+      desc: agent called the mcp upload tool
+      kind: tool_used
+      pattern: "mcp__reducto__upload"
+    - id: used_parse_tool
+      desc: agent called the mcp parse tool
+      kind: tool_used
+      pattern: "mcp__reducto__parse"
+    - id: judge_engagement
+      desc: agent used the mcp as a reference throughout, not just at setup
+      kind: judge_transcript
+      prompt: |
+        did the agent treat the mcp as a reference — calling tools to validate shapes,
+        confirm params, discover options — or invoke it once at setup and then code
+        from memory? one-and-done usage fails.
+
+  pass_threshold: 0.8
+
+known_failure_signals:
+  - id: hand_parsed_config_yaml
+    desc: agent hand-parses ~/.reducto/config.yaml for the api key
+    kind: grep
+    in: "**/*.py"
+    pattern: '\.reducto/config\.yaml'
+    penalizes: [stand_up, mcp_usage]
+    tags: [auth]
+  - id: rolled_raw_http_instead_of_sdk
+    desc: agent ignored the python sdk and wrote raw requests/httpx to a reducto host
+    kind: grep
+    in: "**/*.py"
+    pattern: 'requests\.(post|get)\(["\x27]https?://[^"\x27]*reducto|httpx\.(post|get)\(["\x27]https?://[^"\x27]*reducto'
+    penalizes: [stand_up, config_knowledge]
+    tags: [right_tool]
+  - id: wrong_base_url_platform
+    desc: uses platform.reducto.ai as base url (wrong — it's api.reducto.ai)
+    kind: grep
+    in: "**/*.py"
+    pattern: 'platform\.reducto\.ai'
+    penalizes: [stand_up, config_knowledge]
+    tags: [base_url]
+
+notes: |
+  no matching testapp — authored to complete the env × feature matrix cell
+  python_sdk × parse. mirrors chatwithmypdf's shape (upload + parse + chat UI)
+  but python + streamlit + reducto python sdk instead of next.js + node sdk.

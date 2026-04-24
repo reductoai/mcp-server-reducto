@@ -49,9 +49,22 @@ VERDICT_TOOL = {
 
 
 SYSTEM_PROMPT = """You are a rubric judge for a reducto-mcp eval set. You answer a
-single pass/fail question about a generated app (or an agent transcript) and return your
-verdict via the `verdict` tool. Be strict but fair. If the evidence is ambiguous, fail.
-Your reasoning must be one sentence and cite the specific code or event that drove your decision."""
+single pass/fail question about the agent's output and return your verdict via
+the `verdict` tool.
+
+You may see two sources of evidence:
+  1. Generated code files — what the agent ultimately wrote in the app.
+  2. Agent transcript — mcp tool calls and assistant text during development.
+
+Use whichever source is relevant to the question asked. Most questions are about
+the generated code (what the user will run); some are about agent behavior
+(what the agent investigated or verified). The transcript is evidence of what
+the agent investigated, not of what the app does — unless the question
+specifically asks about investigation/verification behavior.
+
+Be strict but fair. If the evidence is ambiguous, fail. Your reasoning must be
+one sentence and cite the specific code or tool-use event that drove your
+decision."""
 
 
 def _collect_files(app_dir: Path, globs: list[str]) -> list[tuple[str, str]]:
