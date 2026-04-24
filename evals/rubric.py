@@ -372,7 +372,8 @@ def format_report(result: ScenarioResult, *, verbose_transcript: list[dict] | No
             elif t == "tool_use":
                 lines.append(f"  [tool_use] {e.get('name')} input={_truncate(json.dumps(e.get('input', {})), 200)}")
             elif t == "tool_result":
-                lines.append(f"  [tool_result] {e.get('name')} content={_truncate(str(e.get('content', '')), 200)}")
+                # tool_result events carry tool_use_id (paired with the tool_use), not name
+                lines.append(f"  [tool_result] tool_use_id={e.get('tool_use_id', '?')} content={_truncate(str(e.get('content', '')), 200)}")
             else:
                 lines.append(f"  [{t}] {e}")
         lines.append("")
