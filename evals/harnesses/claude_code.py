@@ -251,7 +251,9 @@ class ClaudeCodeHarness:
                 for norm in _normalize_event(sj):
                     transcript.append(norm)
                 if sj.get("type") == "result":
-                    total_cost = sj.get("total_cost_usd") or sj.get("cost_usd")
+                    # explicit key check — $0.00 is a legitimate value (cached/free-tier runs)
+                    # and would be dropped by `a or b` because 0.0 is falsy in python
+                    total_cost = sj["total_cost_usd"] if "total_cost_usd" in sj else sj.get("cost_usd")
             proc.wait(timeout=self.timeout_s)
         except subprocess.TimeoutExpired:
             proc.kill()

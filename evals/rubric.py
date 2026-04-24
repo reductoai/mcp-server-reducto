@@ -126,11 +126,31 @@ class ScenarioResult:
 IGNORE_DIRS = {"node_modules", ".venv", "venv", "__pycache__", ".git", "dist", ".next", "build", ".pytest_cache"}
 
 
+def _expand_braces(pattern: str) -> list[str]:
+    """Expand one level of brace alternation, e.g. '**/*.{ts,tsx}' → ['**/*.ts', '**/*.tsx'].
+
+    pathlib.Path.glob() only supports {...} natively on Python 3.13+; we expand here so the
+    rubric behaves identically on 3.11 / 3.12 / 3.13.
+    """
+    m = re.search(r"\{([^{}]+)\}", pattern)
+    if not m:
+        return [pattern]
+    prefix, suffix = pattern[: m.start()], pattern[m.end():]
+    return [prefix + alt.strip() + suffix for alt in m.group(1).split(",")]
+
+
 def _glob(root: Path, pattern: str) -> list[Path]:
-    return [
-        p for p in root.glob(pattern)
-        if not any(part in IGNORE_DIRS for part in p.parts)
-    ]
+    seen: set[Path] = set()
+    out: list[Path] = []
+    for expanded in _expand_braces(pattern):
+        for p in root.glob(expanded):
+            if p in seen:
+                continue
+            if any(part in IGNORE_DIRS for part in p.parts):
+                continue
+            seen.add(p)
+            out.append(p)
+    return out
 
 
 def _check_file_exists(ctx: CheckContext, check: dict[str, Any]) -> CheckResult:

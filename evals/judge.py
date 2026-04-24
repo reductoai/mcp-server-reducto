@@ -16,9 +16,10 @@ import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 try:
-    import anthropic
+    import anthropic  # type: ignore[import-not-found]
 except ImportError:
     anthropic = None  # type: ignore[assignment]
 
@@ -126,7 +127,9 @@ def _build_message(prompt: str, *, files: list[tuple[str, str]] | None = None,
     return "\n".join(parts)
 
 
-def _client() -> "anthropic.Anthropic | None":
+def _client() -> Any:
+    """anthropic.Anthropic client when available, else None. Typed as Any because
+    anthropic is an optional extra (evals extra) — pyright shouldn't trip when it isn't installed."""
     if anthropic is None:
         return None
     if not os.environ.get("ANTHROPIC_API_KEY"):
