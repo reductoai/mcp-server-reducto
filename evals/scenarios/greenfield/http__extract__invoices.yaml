@@ -1,0 +1,125 @@
+id: http__extract__invoices
+environment: http
+feature: extract
+mode: greenfield
+source: authored to cover http × extract (higher-priority http cell than split/edit)
+
+seed_prompt: |
+  build a small python app that accepts a folder of invoice pdfs, extracts
+  structured fields (vendor, date, total, category) from each, and aggregates
+  them into a totals-by-category view. use reducto's rest api (not the sdk).
+  flask or streamlit is fine.
+
+fixture:
+  - invoices/sample_invoice_1.pdf
+  - invoices/sample_invoice_2.pdf
+
+rubric:
+  stand_up:
+    - id: http_client_installed
+      desc: requests or httpx listed as a dependency
+      kind: grep
+      in: "**/*.{toml,txt,cfg}"
+      pattern: "requests|httpx"
+    - id: correct_base_url
+      desc: uses api.reducto.ai as the base url (not platform.reducto.ai)
+      kind: grep
+      in: "**/*.py"
+      pattern: 'api\.reducto\.ai'
+      tags: [base_url]
+    - id: reducto_code_compiles
+      desc: python code imports cleanly
+      kind: shell
+      cmd: "python -c 'import ast, pathlib; [ast.parse(p.read_text()) for p in pathlib.Path(\".\").rglob(\"*.py\")]'"
+      timeout: 30
+    - id: no_hardcoded_api_key
+      desc: api key not hardcoded in source
+      kind: not_grep
+      in: "**/*.py"
+      pattern: 'api_key\s*=\s*"(sk|r)_'
+      tags: [auth]
+
+  config_knowledge:
+    - id: calls_extract_endpoint
+      desc: makes a POST to /extract or /extract/run on the reducto api
+      kind: judge
+      tags: [right_tool, endpoint_shape]
+      paths: ["**/*.py"]
+      prompt: |
+        does the code POST to the reducto /extract (or /extract/run) endpoint
+        with a document reference and a schema? if it calls /parse and tries
+        to extract fields via string-matching on the parse output, fail —
+        that's not what extract is for.
+    - id: invoice_schema_defined
+      desc: extract schema captures invoice fields
+      kind: judge
+      tags: [schema_quality]
+      paths: ["**/*.py"]
+      prompt: |
+        is a json schema passed to extract with at minimum vendor, invoice_date /
+        date, total / amount, and category? a missing or trivial schema fails.
+    - id: handles_urlresult
+      desc: handles URLResult from extract (large docs return a presigned url)
+      kind: judge
+      tags: [urlresult, response_shape]
+      paths: ["**/*.py"]
+      prompt: |
+        extract responses can be inline or a URLResult with a presigned url
+        (`result_type == "url"` or `result.type == "url"`). does the code branch
+        on the result type and fetch the url when present? silently assuming
+        inline fails this check.
+    - id: aggregation_by_category
+      desc: aggregation computes totals broken down by category
+      kind: judge
+      paths: ["**/*.py"]
+      prompt: |
+        is there code that aggregates extracted invoices — at minimum a breakdown
+        by category with totals? a stubbed or missing aggregator fails.
+
+  mcp_usage:
+    - id: consulted_mcp
+      desc: agent invoked at least one reducto mcp tool
+      kind: tool_used
+      pattern: "^mcp__reducto__"
+      min_count: 1
+    - id: used_upload_tool
+      desc: agent called the mcp upload tool
+      kind: tool_used
+      pattern: "mcp__reducto__upload"
+    - id: used_extract_tool
+      desc: agent called the mcp extract tool
+      kind: tool_used
+      pattern: "mcp__reducto__extract"
+      tags: [right_tool]
+    - id: judge_engagement
+      desc: agent used the mcp as a reference throughout
+      kind: judge_transcript
+      prompt: |
+        did the agent use the mcp as a reference — calling tools to confirm
+        schema shape / endpoint / response format — or invoke it once at setup
+        and then code from memory? even for an http-env scenario, the agent
+        should lean on the mcp at dev time to avoid wrong-host / wrong-endpoint
+        mistakes, even if the final app uses rest at runtime.
+
+  pass_threshold: 0.8
+
+known_failure_signals:
+  - id: wrong_base_url_platform
+    desc: uses platform.reducto.ai as base url (wrong — it's api.reducto.ai)
+    kind: grep
+    in: "**/*.py"
+    pattern: 'platform\.reducto\.ai'
+    penalizes: [stand_up, config_knowledge]
+    tags: [base_url]
+  - id: hand_parsed_config_yaml
+    desc: agent hand-parses ~/.reducto/config.yaml for the api key
+    kind: grep
+    in: "**/*.py"
+    pattern: '\.reducto/config\.yaml'
+    penalizes: [stand_up, mcp_usage]
+    tags: [auth]
+
+notes: |
+  http × extract is a high-priority cell — extract is one of the two core
+  reducto operations, and http is a common deployment shape (no sdk dep).
+  mirrors http × edit (pythonchatwithpdf) in shape, but centers extract.

@@ -1,0 +1,122 @@
+id: http__parse__docchat
+environment: http
+feature: parse
+mode: greenfield
+source: authored to cover http × parse (higher-priority http cell than split/edit)
+
+seed_prompt: |
+  build a small python app that lets me upload a pdf, parses it with reducto,
+  and then exposes a simple chat interface to ask questions about the document.
+  use reducto's rest api (not the sdk). flask or streamlit is fine.
+
+fixture:
+  - generic/sample.pdf
+
+rubric:
+  stand_up:
+    - id: http_client_installed
+      desc: requests or httpx listed as a dependency
+      kind: grep
+      in: "**/*.{toml,txt,cfg}"
+      pattern: "requests|httpx"
+    - id: correct_base_url
+      desc: uses api.reducto.ai as the base url (not platform.reducto.ai)
+      kind: grep
+      in: "**/*.py"
+      pattern: 'api\.reducto\.ai'
+      tags: [base_url]
+    - id: reducto_code_compiles
+      desc: python code imports cleanly
+      kind: shell
+      cmd: "python -c 'import ast, pathlib; [ast.parse(p.read_text()) for p in pathlib.Path(\".\").rglob(\"*.py\")]'"
+      timeout: 30
+    - id: no_hardcoded_api_key
+      desc: api key not hardcoded in source
+      kind: not_grep
+      in: "**/*.py"
+      pattern: 'api_key\s*=\s*"(sk|r)_'
+      tags: [auth]
+
+  config_knowledge:
+    - id: calls_parse_endpoint
+      desc: makes a POST to /parse or /parse/run on the reducto api
+      kind: judge
+      tags: [right_tool, endpoint_shape]
+      paths: ["**/*.py"]
+      prompt: |
+        does the code POST to the reducto /parse or /parse/run endpoint? if it calls
+        a different endpoint, or tries to do parsing locally / client-side, fail.
+    - id: upload_returns_file_id
+      desc: upload returns a file_id that's used as input to /parse
+      kind: judge
+      tags: [params_shape]
+      paths: ["**/*.py"]
+      prompt: |
+        does the upload flow POST to /upload (or equivalent), capture the returned
+        file_id (or reducto:// reference), and pass it to the parse call as the
+        document/input? passing a local filesystem path directly to /parse fails.
+    - id: handles_urlresult
+      desc: handles URLResult from parse (large docs return a presigned url)
+      kind: judge
+      tags: [urlresult, response_shape]
+      paths: ["**/*.py"]
+      prompt: |
+        parse responses can be inline chunks or a URLResult with a presigned url
+        (`result_type == "url"` or `result.type == "url"`). does the code branch
+        on the result type and fetch the url when present? silently assuming
+        inline fails this check.
+    - id: chat_uses_parsed_text
+      desc: chat flow sends parsed document text to the llm as context (not stubbed)
+      kind: judge
+      paths: ["**/*.py"]
+      prompt: |
+        does the chat/llm flow feed the parsed document text into the llm call
+        as context? a stubbed chat that ignores the parse output fails this.
+
+  mcp_usage:
+    - id: consulted_mcp
+      desc: agent invoked at least one reducto mcp tool
+      kind: tool_used
+      pattern: "^mcp__reducto__"
+      min_count: 1
+    - id: used_upload_tool
+      desc: agent called the mcp upload tool
+      kind: tool_used
+      pattern: "mcp__reducto__upload"
+    - id: used_parse_tool
+      desc: agent called the mcp parse tool
+      kind: tool_used
+      pattern: "mcp__reducto__parse"
+      tags: [right_tool]
+    - id: judge_engagement
+      desc: agent used the mcp as a reference throughout
+      kind: judge_transcript
+      prompt: |
+        did the agent use the mcp as a reference — calling tools to confirm
+        endpoint shapes / response shapes / parameter names — or invoke it once
+        at setup and then code from memory? for an http-env scenario the agent
+        should still lean on the mcp at dev time to avoid the common wrong-host
+        and wrong-endpoint mistakes, even if the final app uses rest at runtime.
+
+  pass_threshold: 0.8
+
+known_failure_signals:
+  - id: wrong_base_url_platform
+    desc: uses platform.reducto.ai as base url (wrong — it's api.reducto.ai)
+    kind: grep
+    in: "**/*.py"
+    pattern: 'platform\.reducto\.ai'
+    penalizes: [stand_up, config_knowledge]
+    tags: [base_url]
+  - id: hand_parsed_config_yaml
+    desc: agent hand-parses ~/.reducto/config.yaml for the api key
+    kind: grep
+    in: "**/*.py"
+    pattern: '\.reducto/config\.yaml'
+    penalizes: [stand_up, mcp_usage]
+    tags: [auth]
+
+notes: |
+  http × parse is a high-priority cell — parse is one of the two core reducto
+  operations, and http is a common deployment shape (no sdk dependency).
+  mirrors the shape of http × split (restsplit) but centers parse instead.
