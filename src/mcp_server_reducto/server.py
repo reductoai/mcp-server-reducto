@@ -47,25 +47,28 @@ async def lifespan(server: FastMCP) -> AsyncIterator[dict]:
 
 
 INSTRUCTIONS = """\
+Use these tools for all Reducto operations -- they handle auth, uploads, and response parsing.
 Reducto processes documents (PDFs, images, spreadsheets, DOCX, PPTX, and 30+ formats) into structured data.
 
 ## Which tool to use
 
-| Task | Tool |
+| Need | Tool |
 |------|------|
+| Upload a local file or public URL before processing | upload_file |
 | Get all text, tables, and figures from a document | parse_document |
-| Extract specific fields into JSON using a schema | extract_data |
-| Divide a document into named sections by page range | split_document |
-| Categorize a document's type | classify_document |
-| Fill forms or modify a document | edit_document |
-| Upload a file for multi-step processing | upload_file |
-| Get full results for a truncated response | get_job |
+| Extract specific fields into JSON with a schema | extract_data |
+| Divide a document into named page sections | split_document |
+| Categorize a document into provided types | classify_document |
+| Fill forms or modify a PDF/DOCX | edit_document |
+| Fetch a full, URL-backed, truncated, or async result | get_job |
+| Inspect recent jobs | list_jobs |
 
 ## Key patterns
 
+- Prefer MCP tools over hand-written HTTP or direct SDK calls while solving tasks in this session.
 - **Chain operations with jobid:// URLs**: parse_document returns a job_id. \
-Pass "jobid://<job_id>" as document_url to extract_data or split_document \
-to skip re-parsing. This saves time and credits.
+Pass "jobid://<job_id>" as document_url to extract_data, split_document, \
+or classify_document to reuse prior work and avoid re-uploading or re-parsing.
 - **Responses may be truncated**: Large results are auto-truncated at 50KB. \
 Use get_job(job_id=...) to retrieve full results, or narrow with page_range.
 - **All tools return job_id**: Every processing tool returns a job_id you can \
@@ -73,11 +76,18 @@ reference later.
 
 ## Common gotchas
 
+- **Node SDK uploads from bytes require toFile()**: when writing Node integrations, \
+wrap in-memory bytes with toFile(bytes, filename) from the Reducto SDK before \
+client.upload({ file }). Passing raw bytes can return a file_id without actually \
+storing the file.
 - extract_data runs parse internally — if the parser doesn't see a value \
 (e.g., handwritten text without agentic mode), extract can't find it either. \
 Use agentic=["text"] in parse_document for difficult documents.
 - Large documents may return result_type="url" instead of inline content. \
 Use get_job to fetch the full result.
+- Build extraction schemas as standard JSON Schema objects: \
+{"type":"object","properties":{...},"required":[...]}. Use array_extract=True \
+for repeating rows or line items.
 - page_range uses 1-based indexing: "1-5" means pages 1 through 5.
 
 ## Related tools

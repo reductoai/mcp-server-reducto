@@ -46,9 +46,8 @@ def format_parse_response(response: Any) -> str:
     if hasattr(response, "result") and response.result:
         resp_result = response.result
         # Handle FullResult vs UrlResult
-        if hasattr(resp_result, "type") and resp_result.type == "url":
+        if _add_url_result_fields(result, resp_result):
             result["result_type"] = "url"
-            result["result_url"] = resp_result.url
         elif hasattr(resp_result, "chunks"):
             blocks = []
             for chunk in resp_result.chunks:
@@ -64,6 +63,14 @@ def format_parse_response(response: Any) -> str:
                 type_counts[t] = type_counts.get(t, 0) + 1
             result["block_type_counts"] = type_counts
             result["blocks"] = blocks
+
+    job_id = result.get("job_id")
+    if job_id:
+        result["next_steps"] = (
+            f"Use jobid://{job_id} as document_url for extract_data, split_document, or classify_document."
+        )
+    else:
+        result["next_steps"] = "Use the parsed blocks directly, or run extract_data with a schema for JSON fields."
 
     return _truncate_response(result)
 
@@ -88,7 +95,17 @@ def format_extract_response(response: Any) -> str:
             result["usage"]["credits"] = usage.credits
 
     if hasattr(response, "result"):
-        result["result"] = response.result
+        resp_result = response.result
+        if not _add_url_result_fields(result, resp_result):
+            result["result"] = resp_result
+
+    if "job_id" in result:
+        result["next_steps"] = (
+            "Read result for extracted fields; if fields are missing, refine the schema/system_prompt "
+            "or parse first with agentic=['text']."
+        )
+    else:
+        result["next_steps"] = "Read result for extracted fields; refine the schema if values are missing."
 
     return _truncate_response(result)
 
@@ -121,7 +138,13 @@ def format_split_response(response: Any) -> str:
                 if hasattr(s, "conf"):
                     split_data["confidence"] = s.conf
                 splits.append(split_data)
+            result["section_count"] = len(splits)
             result["splits"] = splits
+
+    if "job_id" in result:
+        result["next_steps"] = f"Use get_job(job_id='{result['job_id']}') to retrieve or audit the full split result."
+    else:
+        result["next_steps"] = "Use the splits page ranges to route each section to parse_document or extract_data."
 
     return _truncate_response(result)
 
@@ -145,6 +168,11 @@ def format_classify_response(response: Any) -> str:
                 {"category": c.category, "confidence": c.confidence} for c in conf.categories
             ]
 
+    if "job_id" in result:
+        result["next_steps"] = f"Use the category result, or call get_job(job_id='{result['job_id']}') for details."
+    else:
+        result["next_steps"] = "Use the category result to choose the next parse or extract schema."
+
     return _truncate_response(result)
 
 
@@ -154,12 +182,17 @@ def format_edit_response(response: Any) -> str:
 
     if hasattr(response, "document_url"):
         result["document_url"] = response.document_url
+    if hasattr(response, "form_schema") and response.form_schema:
+        result["form_schema"] = response.form_schema
+        result["form_schema_note"] = "Cache this form_schema and pass it via options.form_schema for repeated edits."
 
     if hasattr(response, "usage") and response.usage:
         usage = response.usage
         result["usage"] = {}
         if hasattr(usage, "num_pages"):
             result["usage"]["num_pages"] = usage.num_pages
+
+    result["next_steps"] = "Download or pass document_url to another Reducto tool for follow-up processing."
 
     return _truncate_response(result)
 
@@ -174,18 +207,35 @@ def format_upload_response(response: Any) -> str:
     # The upload response model_dump is small, just serialize it
     if not result:
         result = _safe_model_dump(response)
+    document_url = result.get("file_id") or result.get("url") if isinstance(result, dict) else None
+    if isinstance(result, dict):
+        if document_url:
+            result["next_steps"] = f"Pass {document_url} as document_url to parse_document or extract_data."
+        else:
+            result["next_steps"] = "Pass the returned reducto:// URL as document_url to parse_document or extract_data."
     return _truncate_response(result)
 
 
 def format_job_response(response: Any) -> str:
     """Format a job retrieval response."""
     data = _safe_model_dump(response)
+    if isinstance(data, dict):
+        _add_nested_url_result_warning(data)
+        status = str(data.get("status", "")).lower()
+        if status and status not in {"completed", "complete", "succeeded", "success"}:
+            data["next_steps"] = "Job is not complete yet; call get_job again later before reading final results."
+        else:
+            data["next_steps"] = (
+                "Use this result directly, or pass jobid://<job_id> as document_url for another Reducto tool."
+            )
     return _truncate_response(data)
 
 
 def format_job_list_response(response: Any) -> str:
     """Format a job list response."""
     data = _safe_model_dump(response)
+    if isinstance(data, dict):
+        data["next_steps"] = "Call get_job with a returned job_id to inspect status, results, or URL-backed output."
     return _truncate_response(data)
 
 
@@ -196,6 +246,48 @@ def _safe_model_dump(obj: Any) -> Any:
     if isinstance(obj, (dict, list, str, int, float, bool, type(None))):
         return obj
     return str(obj)
+
+
+def _url_from_result(obj: Any) -> str | None:
+    """Return the result URL if obj looks like a Reducto UrlResult."""
+    if hasattr(obj, "type") and obj.type == "url" and hasattr(obj, "url"):
+        return str(obj.url)
+    if isinstance(obj, dict) and obj.get("type") == "url" and obj.get("url"):
+        return str(obj["url"])
+    return None
+
+
+def _add_url_result_fields(result: dict[str, Any], resp_result: Any) -> bool:
+    """Add consistent fields for URL-backed results."""
+    url = _url_from_result(resp_result)
+    if not url:
+        return False
+    result["result_type"] = "url"
+    result["result_url"] = url
+    if "job_id" in result:
+        result["result_access_warning"] = (
+            f"Result content is URL-backed; call get_job(job_id='{result['job_id']}') before reading it."
+        )
+    else:
+        result["result_access_warning"] = "Result content is URL-backed; fetch the job result before reading it."
+    return True
+
+
+def _add_nested_url_result_warning(data: dict[str, Any]) -> None:
+    """Surface URL-backed job results after model_dump conversion."""
+    result_obj = data.get("result")
+    url = _url_from_result(result_obj)
+    if not url:
+        return
+    data["result_type"] = "url"
+    data["result_url"] = url
+    job_id = data.get("job_id")
+    if job_id:
+        data["result_access_warning"] = (
+            f"Result content is URL-backed; call get_job(job_id='{job_id}') before reading it."
+        )
+    else:
+        data["result_access_warning"] = "Result content is URL-backed; fetch the job result before reading it."
 
 
 def _truncate_response(data: Any) -> str:

@@ -24,13 +24,14 @@ from mcp_server_reducto.validation import (
 @mcp.tool(
     name="parse_document",
     description=(
-        "Parse a document into structured text, tables, and figures. "
-        "Supports PDFs, images, spreadsheets, and 30+ formats. "
-        "Returns structured blocks with type and content. "
-        "Example: parse_document(document_url='https://example.com/report.pdf', table_output_format='html'). "
-        "For difficult documents (handwritten, complex layouts), use agentic=['table','text','figure']. "
-        "Use jobid:// URLs from previous results to avoid re-processing: "
-        "parse_document('jobid://abc123') reuses a previous parse."
+        "Use this tool whenever you need document text, tables, figures, layout blocks, "
+        "or parse output instead of writing HTTP requests yourself. "
+        "Supports PDFs, images, spreadsheets, DOCX, PPTX, and 30+ formats; "
+        "pass reducto:// URLs from upload_file or public URLs. "
+        "Use agentic=['text','table','figure'] for handwriting or complex layouts. "
+        "Large responses can be URLResult (result_type=url); call get_job for full content. "
+        "Returns job_id for jobid:// chaining. "
+        "See https://docs.reducto.ai"
     ),
 )
 async def parse_document(
