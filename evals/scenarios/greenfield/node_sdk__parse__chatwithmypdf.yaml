@@ -90,6 +90,108 @@ rubric:
         confirm response formats) or just invoke it once at setup and then code from memory?
         reference-style usage passes. one-and-done usage fails.
 
+  outcome_success:
+    - id: parse_fixture_produces_text
+      desc: generated Next/Node parse integration parses the fixture PDF through Reducto and returns non-empty text/chunks
+      kind: shell
+      timeout: 180
+      tags: [live_api, parse, fixture]
+      cmd: |
+        set -e
+        test -n "$REDUCTO_API_KEY"
+        if [ -f package.json ]; then npm install; fi
+        npm install --no-save tsx >/dev/null 2>&1
+        cat > .reducto_outcome_parse.ts <<'TS'
+        import fs from "node:fs";
+        import path from "node:path";
+        import { pathToFileURL } from "node:url";
+
+        const root = process.cwd();
+        const fixtureDir = path.join(root, "fixtures");
+        const fixture = fs.readdirSync(fixtureDir).filter((name) => name.endsWith(".pdf")).sort()[0];
+        if (!fixture) throw new Error("no PDF fixture found in ./fixtures");
+        const fixturePath = path.join(fixtureDir, fixture);
+        const bytes = fs.readFileSync(fixturePath);
+
+        async function valueText(value: any): Promise<string> {
+          value = await value;
+          if (value instanceof Response) {
+            if (!value.ok) throw new Error(`route returned status ${value.status}`);
+            const text = await value.text();
+            try {
+              return valueText(JSON.parse(text));
+            } catch {
+              return text;
+            }
+          }
+          if (value && typeof value.json === "function") {
+            try {
+              return valueText(await value.json());
+            } catch {}
+          }
+          if (typeof value === "string") return value;
+          if (Buffer.isBuffer(value)) return value.toString("utf8");
+          if (Array.isArray(value)) return (await Promise.all(value.map(valueText))).join(" ");
+          if (value && typeof value === "object") return (await Promise.all(Object.values(value).map(valueText))).join(" ");
+          return "";
+        }
+
+        function walk(dir: string): string[] {
+          const out: string[] = [];
+          for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+            if (["node_modules", ".next", "dist", "build", ".git"].includes(entry.name)) continue;
+            const full = path.join(dir, entry.name);
+            if (entry.isDirectory()) out.push(...walk(full));
+            else if (/\.(ts|js|mjs)$/.test(entry.name) && !entry.name.startsWith(".reducto_outcome")) out.push(full);
+          }
+          return out;
+        }
+
+        async function callPost(mod: any): Promise<boolean> {
+          if (typeof mod.POST !== "function") return false;
+          const fd = new FormData();
+          for (const name of ["file", "files", "pdf", "document"]) {
+            fd.append(name, new Blob([bytes], { type: "application/pdf" }), fixture);
+          }
+          const req = new Request("http://localhost/api/outcome", { method: "POST", body: fd });
+          const text = await valueText(mod.POST(req));
+          return text.trim().length >= 20;
+        }
+
+        async function callExport(fn: Function): Promise<boolean> {
+          const attempts = [fixturePath, new Blob([bytes], { type: "application/pdf" }), bytes];
+          for (const arg of attempts) {
+            try {
+              if ((await valueText(fn(arg))).trim().length >= 20) return true;
+            } catch {}
+          }
+          return false;
+        }
+
+        const errors: string[] = [];
+        for (const file of walk(root)) {
+          const source = fs.readFileSync(file, "utf8");
+          if (!source.toLowerCase().includes("parse") || !source.includes("Reducto")) continue;
+          try {
+            const mod = await import(pathToFileURL(file).href + `?outcome=${Date.now()}`);
+            if (await callPost(mod)) {
+              console.log("SUCCESS");
+              process.exit(0);
+            }
+            for (const value of Object.values(mod)) {
+              if (typeof value === "function" && value.toString().toLowerCase().includes("parse") && await callExport(value)) {
+                console.log("SUCCESS");
+                process.exit(0);
+              }
+            }
+          } catch (err: any) {
+            errors.push(`${path.relative(root, file)}: ${err?.message || err}`);
+          }
+        }
+        throw new Error("no generated parse integration produced non-empty text; " + errors.slice(-3).join(" | "));
+        TS
+        npx tsx .reducto_outcome_parse.ts
+
   pass_threshold: 0.8
 
 known_failure_signals:

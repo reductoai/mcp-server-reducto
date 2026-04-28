@@ -100,6 +100,141 @@ rubric:
         schemas, response shapes, or options — or invoke it once at setup and then
         code from memory? one-and-done usage fails.
 
+  outcome_success:
+    - id: extract_fixture_produces_invoice_fields
+      desc: generated Next/Node extract integration extracts vendor, date, total, and category from a fixture invoice PDF
+      kind: shell
+      timeout: 180
+      tags: [live_api, extract, fixture, schema_quality]
+      cmd: |
+        set -e
+        test -n "$REDUCTO_API_KEY"
+        if [ -f package.json ]; then npm install; fi
+        npm install --no-save tsx >/dev/null 2>&1
+        cat > .reducto_outcome_extract.ts <<'TS'
+        import fs from "node:fs";
+        import path from "node:path";
+        import { pathToFileURL } from "node:url";
+
+        const root = process.cwd();
+        const fixtureDir = path.join(root, "fixtures");
+        const fixture = fs.readdirSync(fixtureDir).filter((name) => name.endsWith(".pdf")).sort()[0];
+        if (!fixture) throw new Error("no PDF fixture found in ./fixtures");
+        const fixturePath = path.join(fixtureDir, fixture);
+        const bytes = fs.readFileSync(fixturePath);
+        const schema = {
+          type: "object",
+          properties: {
+            vendor: { type: "string" },
+            date: { type: "string" },
+            total: { type: "number" },
+            category: { type: "string" },
+          },
+          required: ["vendor", "date", "total", "category"],
+        };
+
+        async function materialize(value: any): Promise<any> {
+          value = await value;
+          if (value instanceof Response) {
+            if (!value.ok) throw new Error(`route returned status ${value.status}`);
+            const text = await value.text();
+            try {
+              return JSON.parse(text);
+            } catch {
+              return text;
+            }
+          }
+          if (value && typeof value.json === "function") {
+            try {
+              return await value.json();
+            } catch {}
+          }
+          return value;
+        }
+
+        async function keys(value: any): Promise<Set<string>> {
+          value = await materialize(value);
+          const out = new Set<string>();
+          if (Array.isArray(value)) {
+            for (const item of value) for (const key of await keys(item)) out.add(key);
+          } else if (value && typeof value === "object") {
+            for (const [key, child] of Object.entries(value)) {
+              out.add(key.toLowerCase());
+              for (const nested of await keys(child)) out.add(nested);
+            }
+          } else if (typeof value === "string") {
+            try {
+              for (const key of await keys(JSON.parse(value))) out.add(key);
+            } catch {}
+          }
+          return out;
+        }
+
+        async function hasInvoiceFields(value: any): Promise<boolean> {
+          const found = await keys(value);
+          const list = [...found];
+          return list.some((key) => key.includes("vendor") || key.includes("merchant"))
+            && list.some((key) => key.includes("date"))
+            && list.some((key) => key.includes("total") || key.includes("amount"))
+            && list.some((key) => key.includes("category"));
+        }
+
+        function walk(dir: string): string[] {
+          const out: string[] = [];
+          for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+            if (["node_modules", ".next", "dist", "build", ".git"].includes(entry.name)) continue;
+            const full = path.join(dir, entry.name);
+            if (entry.isDirectory()) out.push(...walk(full));
+            else if (/\.(ts|js|mjs)$/.test(entry.name) && !entry.name.startsWith(".reducto_outcome")) out.push(full);
+          }
+          return out;
+        }
+
+        async function callPost(mod: any): Promise<boolean> {
+          if (typeof mod.POST !== "function") return false;
+          const fd = new FormData();
+          for (const name of ["file", "files", "invoice", "invoices", "pdf"]) {
+            fd.append(name, new Blob([bytes], { type: "application/pdf" }), fixture);
+          }
+          fd.set("schema", JSON.stringify(schema));
+          const req = new Request("http://localhost/api/outcome", { method: "POST", body: fd });
+          return hasInvoiceFields(mod.POST(req));
+        }
+
+        async function callExport(fn: Function): Promise<boolean> {
+          const attempts: any[][] = [[fixturePath], [fixturePath, schema], [new Blob([bytes], { type: "application/pdf" }), schema], [bytes, schema]];
+          for (const args of attempts) {
+            try {
+              if (await hasInvoiceFields(fn(...args))) return true;
+            } catch {}
+          }
+          return false;
+        }
+
+        const errors: string[] = [];
+        for (const file of walk(root)) {
+          const source = fs.readFileSync(file, "utf8");
+          if (!source.toLowerCase().includes("extract") || !source.includes("Reducto")) continue;
+          try {
+            const mod = await import(pathToFileURL(file).href + `?outcome=${Date.now()}`);
+            if (await callPost(mod)) {
+              console.log("SUCCESS");
+              process.exit(0);
+            }
+            for (const value of Object.values(mod)) {
+              if (typeof value === "function" && value.toString().toLowerCase().includes("extract") && await callExport(value)) {
+                console.log("SUCCESS");
+                process.exit(0);
+              }
+            }
+          } catch (err: any) {
+            errors.push(`${path.relative(root, file)}: ${err?.message || err}`);
+          }
+        }
+        throw new Error("no generated extract integration produced invoice fields; " + errors.slice(-3).join(" | "));
+        TS
+        npx tsx .reducto_outcome_extract.ts
+
   pass_threshold: 0.8
 
 known_failure_signals:

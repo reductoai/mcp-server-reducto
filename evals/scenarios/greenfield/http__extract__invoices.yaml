@@ -101,6 +101,154 @@ rubric:
         should lean on the mcp at dev time to avoid wrong-host / wrong-endpoint
         mistakes, even if the final app uses rest at runtime.
 
+  outcome_success:
+    - id: extract_fixture_produces_invoice_fields
+      desc: generated REST extract integration extracts vendor, date, total, and category from a fixture invoice PDF
+      kind: shell
+      timeout: 120
+      tags: [live_api, extract, fixture, schema_quality]
+      cmd: |
+        set -e
+        test -n "$REDUCTO_API_KEY"
+        if [ -f requirements.txt ]; then python -m pip install -q -r requirements.txt; fi
+        if [ -f pyproject.toml ]; then python -m pip install -q . || true; fi
+        cat > .reducto_outcome_extract.py <<'PY'
+        import asyncio
+        import importlib.util
+        import inspect
+        import json
+        import os
+        import pathlib
+        import sys
+
+        os.environ.setdefault("STREAMLIT_SERVER_HEADLESS", "true")
+        root = pathlib.Path(".").resolve()
+        fixtures = sorted((root / "fixtures").glob("*.pdf"))
+        if not fixtures:
+            raise SystemExit("no PDF fixture found in ./fixtures")
+        fixture = fixtures[0]
+        sys.path.insert(0, str(root))
+        schema = {
+            "type": "object",
+            "properties": {
+                "vendor": {"type": "string"},
+                "date": {"type": "string"},
+                "total": {"type": "number"},
+                "category": {"type": "string"},
+            },
+            "required": ["vendor", "date", "total", "category"],
+        }
+
+        def materialize(value):
+            if inspect.isawaitable(value):
+                value = asyncio.run(value)
+            if hasattr(value, "status_code") and value.status_code >= 400:
+                raise RuntimeError(f"route returned status {value.status_code}")
+            if hasattr(value, "get_json"):
+                try:
+                    return value.get_json()
+                except Exception:
+                    return value.get_data(as_text=True)
+            if hasattr(value, "json") and callable(value.json):
+                try:
+                    return value.json()
+                except Exception:
+                    pass
+            if isinstance(value, str):
+                try:
+                    return json.loads(value)
+                except Exception:
+                    return value
+            if not isinstance(value, (dict, list, tuple, str, bytes)) and hasattr(value, "__dict__"):
+                return vars(value)
+            return value
+
+        def keys(value):
+            value = materialize(value)
+            if isinstance(value, dict):
+                out = {str(k).lower() for k in value}
+                for v in value.values():
+                    out |= keys(v)
+                return out
+            if isinstance(value, (list, tuple)):
+                out = set()
+                for item in value:
+                    out |= keys(item)
+                return out
+            return set()
+
+        def has_invoice_fields(value):
+            found = keys(value)
+            return (
+                any("vendor" in k or "merchant" in k for k in found)
+                and any("date" in k for k in found)
+                and any("total" in k or "amount" in k for k in found)
+                and any("category" in k for k in found)
+            )
+
+        def load(path):
+            name = "outcome_" + "_".join(path.with_suffix("").parts)
+            spec = importlib.util.spec_from_file_location(name, path)
+            if not spec or not spec.loader:
+                raise ImportError(path)
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[name] = module
+            spec.loader.exec_module(module)
+            return module
+
+        def try_function(fn):
+            params = list(inspect.signature(fn).parameters.values())
+            attempts = []
+            if len(params) == 1:
+                attempts += [(str(fixture),), (fixture,), (fixture.read_bytes(),)]
+            elif len(params) == 2:
+                attempts += [(str(fixture), schema), (fixture, schema)]
+            elif len(params) == 3:
+                attempts += [(str(fixture), schema, os.environ["REDUCTO_API_KEY"])]
+            for args in attempts:
+                try:
+                    if has_invoice_fields(fn(*args)):
+                        return True
+                except Exception:
+                    pass
+            return False
+
+        errors = []
+        for path in root.rglob("*.py"):
+            if any(part in {".venv", "venv", "__pycache__"} for part in path.parts) or path.name.startswith(".reducto_outcome"):
+                continue
+            source = path.read_text(errors="ignore")
+            if "extract" not in source.lower() or "api.reducto.ai" not in source:
+                continue
+            try:
+                module = load(path)
+            except Exception as exc:
+                errors.append(f"{path}: import failed: {type(exc).__name__}: {exc}")
+                continue
+            for obj in vars(module).values():
+                if hasattr(obj, "test_client"):
+                    client = obj.test_client()
+                    for rule in getattr(obj, "url_map").iter_rules():
+                        if "POST" not in rule.methods:
+                            continue
+                        for field in ["file", "files", "invoice", "invoices", "pdf"]:
+                            with fixture.open("rb") as fh:
+                                resp = client.post(rule.rule, data={field: (fh, fixture.name), "schema": json.dumps(schema)}, content_type="multipart/form-data")
+                            if has_invoice_fields(resp):
+                                print("SUCCESS")
+                                raise SystemExit(0)
+            for _, fn in inspect.getmembers(module, inspect.isfunction):
+                try:
+                    fn_source = inspect.getsource(fn).lower()
+                except OSError:
+                    fn_source = fn.__name__.lower()
+                if "extract" in fn_source and try_function(fn):
+                    print("SUCCESS")
+                    raise SystemExit(0)
+        raise SystemExit("no generated REST extract integration produced invoice fields; " + " | ".join(errors[-3:]))
+        PY
+        python .reducto_outcome_extract.py
+
   pass_threshold: 0.8
 
 known_failure_signals:

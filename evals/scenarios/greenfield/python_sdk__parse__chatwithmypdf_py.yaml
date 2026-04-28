@@ -85,6 +85,124 @@ rubric:
         confirm params, discover options — or invoke it once at setup and then code
         from memory? one-and-done usage fails.
 
+  outcome_success:
+    - id: parse_fixture_produces_text
+      desc: generated parse integration parses the fixture PDF through Reducto and returns non-empty text/chunks
+      kind: shell
+      timeout: 120
+      tags: [live_api, parse, fixture]
+      cmd: |
+        set -e
+        test -n "$REDUCTO_API_KEY"
+        if [ -f requirements.txt ]; then python -m pip install -q -r requirements.txt; fi
+        if [ -f pyproject.toml ]; then python -m pip install -q . || true; fi
+        cat > .reducto_outcome_parse.py <<'PY'
+        import asyncio
+        import importlib.util
+        import inspect
+        import json
+        import os
+        import pathlib
+        import sys
+
+        os.environ.setdefault("OPENAI_API_KEY", "test")
+        os.environ.setdefault("STREAMLIT_SERVER_HEADLESS", "true")
+        root = pathlib.Path(".").resolve()
+        fixtures = sorted((root / "fixtures").glob("*.pdf"))
+        if not fixtures:
+            raise SystemExit("no PDF fixture found in ./fixtures")
+        fixture = fixtures[0]
+        sys.path.insert(0, str(root))
+
+        def text_from(value):
+            if inspect.isawaitable(value):
+                value = asyncio.run(value)
+            if hasattr(value, "status_code") and value.status_code >= 400:
+                raise RuntimeError(f"route returned status {value.status_code}")
+            if hasattr(value, "get_json"):
+                try:
+                    value = value.get_json()
+                except Exception:
+                    value = value.get_data(as_text=True)
+            if hasattr(value, "json") and callable(value.json):
+                try:
+                    value = value.json()
+                except Exception:
+                    pass
+            if not isinstance(value, (str, bytes, dict, list, tuple)) and hasattr(value, "__dict__"):
+                value = vars(value)
+            if isinstance(value, bytes):
+                return value.decode("utf-8", "ignore")
+            if isinstance(value, str):
+                return value
+            if isinstance(value, dict):
+                return " ".join(text_from(v) for v in value.values())
+            if isinstance(value, (list, tuple)):
+                return " ".join(text_from(v) for v in value)
+            return ""
+
+        def load(path):
+            name = "outcome_" + "_".join(path.with_suffix("").parts)
+            spec = importlib.util.spec_from_file_location(name, path)
+            if not spec or not spec.loader:
+                raise ImportError(path)
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[name] = module
+            spec.loader.exec_module(module)
+            return module
+
+        def try_function(fn):
+            params = list(inspect.signature(fn).parameters.values())
+            attempts = []
+            if len(params) == 1:
+                attempts += [(str(fixture),), (fixture,), (fixture.read_bytes(),)]
+            elif len(params) == 2:
+                attempts += [(str(fixture), "Summarize this document."), (str(fixture), os.environ["REDUCTO_API_KEY"])]
+            for args in attempts:
+                try:
+                    out = text_from(fn(*args))
+                    if len(out.strip()) >= 20:
+                        return True
+                except Exception:
+                    pass
+            return False
+
+        errors = []
+        for path in root.rglob("*.py"):
+            if any(part in {".venv", "venv", "__pycache__"} for part in path.parts) or path.name.startswith(".reducto_outcome"):
+                continue
+            source = path.read_text(errors="ignore")
+            if "parse" not in source.lower() or ("Reducto" not in source and "reducto.ai" not in source):
+                continue
+            try:
+                module = load(path)
+            except Exception as exc:
+                errors.append(f"{path}: import failed: {type(exc).__name__}: {exc}")
+                continue
+            for obj in vars(module).values():
+                if hasattr(obj, "test_client"):
+                    client = obj.test_client()
+                    for rule in getattr(obj, "url_map").iter_rules():
+                        if "POST" not in rule.methods:
+                            continue
+                        for field in ["file", "files", "pdf", "document"]:
+                            with fixture.open("rb") as fh:
+                                resp = client.post(rule.rule, data={field: (fh, fixture.name)}, content_type="multipart/form-data")
+                            if len(text_from(resp).strip()) >= 20:
+                                print("SUCCESS")
+                                raise SystemExit(0)
+            for _, fn in inspect.getmembers(module, inspect.isfunction):
+                try:
+                    fn_source = inspect.getsource(fn).lower()
+                except OSError:
+                    fn_source = fn.__name__.lower()
+                if "parse" in fn_source and try_function(fn):
+                    print("SUCCESS")
+                    raise SystemExit(0)
+        raise SystemExit("no generated parse integration produced non-empty text; " + " | ".join(errors[-3:]))
+        PY
+        python .reducto_outcome_parse.py
+
   pass_threshold: 0.8
 
 known_failure_signals:

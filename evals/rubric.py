@@ -19,7 +19,7 @@ from typing import Any
 import yaml
 
 
-AXES = ("stand_up", "config_knowledge", "mcp_usage")
+AXES = ("stand_up", "config_knowledge", "mcp_usage", "outcome_success")
 
 
 @dataclass
@@ -45,6 +45,7 @@ class ScenarioResult:
     stand_up: list[CheckResult] = field(default_factory=list)
     config_knowledge: list[CheckResult] = field(default_factory=list)
     mcp_usage: list[CheckResult] = field(default_factory=list)
+    outcome_success: list[CheckResult] = field(default_factory=list)
     failure_signals: list[CheckResult] = field(default_factory=list)
 
     def _axis_checks(self, axis: str) -> list[CheckResult]:
@@ -83,6 +84,10 @@ class ScenarioResult:
     @property
     def mcp_usage_score(self) -> float | None:
         return self._axis_score("mcp_usage")
+
+    @property
+    def outcome_success_score(self) -> float | None:
+        return self._axis_score("outcome_success")
 
     @property
     def failure_signals_tripped(self) -> list[str]:
@@ -408,6 +413,7 @@ def main() -> None:
             "stand_up_score": result.stand_up_score,
             "config_knowledge_score": result.config_knowledge_score,
             "mcp_usage_score": result.mcp_usage_score,
+            "outcome_success_score": result.outcome_success_score,
             "failure_signals_tripped": result.failure_signals_tripped,
             "tag_scores": {t: list(v) for t, v in result.tag_scores().items()},
         }

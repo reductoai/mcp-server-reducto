@@ -11,7 +11,7 @@ each scenario is a yaml file describing one eval. the runner loads it, drives th
 - `source` — provenance, e.g. `ported from testapps/chatwithmypdf`
 - `seed_prompt` — the user's first message to the agent
 - `fixture` — list of input files (relative to `evals/fixtures/`)
-- `rubric` — three lists of checks: `stand_up`, `config_knowledge`, `mcp_usage`
+- `rubric` — four lists of checks: `stand_up`, `config_knowledge`, `mcp_usage`, `outcome_success`
 - `known_failure_signals` — list of checks that, when tripped, dock the axes listed in each signal's `penalizes` field
 - `pass_threshold` — default 0.8 (tunable per scenario)
 - `notes` — free text
@@ -23,6 +23,7 @@ each scenario is a yaml file describing one eval. the runner loads it, drives th
 | `stand_up`         | did the reducto integration get set up correctly — sdk/http client installed, auth wired (keys reachable, not hardcoded), reducto client instantiated, reducto-touching code compiles |
 | `config_knowledge` | does the generated reducto code use the api correctly — right tool, right params, response shapes handled    |
 | `mcp_usage`        | did the agent actually consult the mcp (graded against the transcript — `null` if no transcript)             |
+| `outcome_success`  | does the generated integration actually work against the Reducto API with real fixtures; these checks should make live Reducto calls using `REDUCTO_API_KEY`, validate useful parse/extract output, and avoid grading cosmetic UI details |
 
 ## check format
 
@@ -56,6 +57,20 @@ each scenario is a yaml file describing one eval. the runner loads it, drives th
 | `judge_transcript` | transcript  | llm judge (unwired — stubbed in v0.1)    |
 
 transcript-based checks return `null` (skipped) when no transcript is provided.
+
+## outcome_success checks
+
+`outcome_success` is the most important axis. It should use `kind: shell` checks
+that install the generated app's dependencies, write a small standalone test
+script into the app directory, and exercise the app's Reducto integration with
+the scenario fixture. Parse checks should verify non-empty document text or
+chunks and print `SUCCESS`; extract checks should verify structured invoice
+fields such as vendor, date, total, and category and print `SUCCESS`.
+
+These checks should be realistic but tolerant of different generated file
+layouts. Prefer discovering generated integration files, helper functions, or
+API route handlers over asserting exact paths. They should use
+`REDUCTO_API_KEY` from the environment and fail when it is missing.
 
 ## failure signals
 
