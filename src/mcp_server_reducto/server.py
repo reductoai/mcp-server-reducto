@@ -74,12 +74,56 @@ Use get_job(job_id=...) to retrieve full results, or narrow with page_range.
 - **All tools return job_id**: Every processing tool returns a job_id you can \
 reference later.
 
+## Writing app code that uses Reducto
+
+When generating application code, use the official SDKs — not raw HTTP fetch/requests.
+
+**Node.js** — `npm install reductoai` (always install the latest stable version):
+```
+import Reducto, { toFile } from 'reductoai';
+const client = new Reducto({ apiKey: process.env.REDUCTO_API_KEY });
+const file = await toFile(bytes, 'doc.pdf');  // required for byte uploads
+const upload = await client.upload({ file });
+const result = await client.parse.run({ input: upload.file_id });
+```
+Do NOT install alpha/pre-release versions (e.g. 0.1.0-alpha.*). Use `npm install reductoai@latest`. \
+Do NOT write raw fetch() to platform.reducto.ai — use the SDK. The toFile() \
+wrapper is required for byte uploads; without it, upload returns a file_id but \
+the file is never stored. \
+Note: the SDK TypeScript types for upload are incorrect (`file: string | null`) \
+but the runtime accepts the Uploadable from toFile(). Use a type cast: \
+`client.upload({ file: reductoFile as unknown as string })`. This is a known \
+SDK typing issue, not a bug in your code.
+
+**Python** — `pip install reductoai` (always install the latest stable version):
+```
+import reducto
+client = reducto.Reducto(api_key=os.environ["REDUCTO_API_KEY"])
+upload = client.upload(file=open('doc.pdf', 'rb').read(), extension='.pdf')
+result = client.parse.run(input=upload.file_id)
+```
+
+## Authentication
+
+The MCP server and the generated app use **different auth paths**:
+
+- **MCP server** (this tool): authenticates via `reducto login` or `~/.reducto/config.yaml`. \
+You do not need to configure this — it is already set up.
+- **Generated app code**: must use an API key via environment variable. \
+Set `REDUCTO_API_KEY` in the app's `.env` or `.env.local` file. \
+The SDK reads it automatically: `new Reducto()` in Node or `reducto.Reducto()` in Python \
+both check `REDUCTO_API_KEY` from the environment. \
+If the user has already run `reducto login`, the key is in `~/.reducto/config.yaml` — \
+you can read it from there or ask the user to export it.
+
+Do NOT hardcode API keys in source. Do NOT skip the `.env` / `.env.local` setup — \
+without it the app will fail with "REDUCTO_API_KEY environment variable is missing."
+
+Each tool response includes `sdk_examples` with Node and Python snippets \
+showing the equivalent SDK call. Use those as the basis for generated app code.
+
 ## Common gotchas
 
-- **Node SDK uploads from bytes require toFile()**: when writing Node integrations, \
-wrap in-memory bytes with toFile(bytes, filename) from the Reducto SDK before \
-client.upload({ file }). Passing raw bytes can return a file_id without actually \
-storing the file.
 - extract_data runs parse internally — if the parser doesn't see a value \
 (e.g., handwritten text without agentic mode), extract can't find it either. \
 Use agentic=["text"] in parse_document for difficult documents.
@@ -94,7 +138,7 @@ for repeating rows or line items.
 
 - For batch processing of local files: Reducto CLI (`pip install reducto-cli`)
 - For spreadsheet-like extraction workflows: Reducto Workflows (workflows.reducto.ai)
-- For direct API access: Python SDK (`pip install reductoai`)
+- API reference: https://docs.reducto.ai
 """
 
 _hosted = os.environ.get("REDUCTO_MCP_HOSTED") == "1"
