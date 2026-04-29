@@ -50,10 +50,22 @@ INSTRUCTIONS = """\
 Use these tools for all Reducto operations -- they handle auth, uploads, and response parsing.
 Reducto processes documents (PDFs, images, spreadsheets, DOCX, PPTX, and 30+ formats) into structured data.
 
+## START HERE: get_documentation
+
+Before writing ANY Reducto code, call `get_documentation` with your target \
+topic and language. It returns working SDK code examples, install commands, \
+auth setup, response shapes, and common gotchas — sourced from the live \
+Reducto OpenAPI spec plus hand-curated patterns. Topics: quickstart, parse, \
+extract, split, edit, upload, classify, auth. Languages: node, python, http. \
+Skipping this and coding from memory is the #1 source of broken Reducto \
+integrations (wrong SDK versions, missing toFile() on Node uploads, missing \
+URLResult handling, missing form_schema caching on edits).
+
 ## Which tool to use
 
 | Need | Tool |
 |------|------|
+| **Look up SDK patterns / docs / examples (do this first!)** | **get_documentation** |
 | Upload a local file or public URL before processing | upload_file |
 | Get all text, tables, and figures from a document | parse_document |
 | Extract specific fields into JSON with a schema | extract_data |
@@ -159,7 +171,7 @@ mcp = FastMCP(
 )
 
 # Register all tools by importing the modules (they use @mcp.tool())
-from mcp_server_reducto.tools import classify, edit, extract, jobs, parse, split, upload  # noqa: E402, F401
+from mcp_server_reducto.tools import classify, docs, edit, extract, jobs, parse, split, upload  # noqa: E402, F401
 
 
 def create_server(*, client=None) -> FastMCP:
