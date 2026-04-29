@@ -3,236 +3,166 @@ environment: http
 feature: parse
 mode: greenfield
 source: authored to cover http × parse (higher-priority http cell than split/edit)
+seed_prompt: 'build a small python app that lets me upload a pdf, parses it with reducto,
 
-seed_prompt: |
-  build a small python app that lets me upload a pdf, parses it with reducto,
   and then exposes a simple chat interface to ask questions about the document.
-  use reducto's rest api (not the sdk). flask or streamlit is fine.
 
+  use reducto''s rest api (not the sdk). flask or streamlit is fine.
+
+  '
 fixture:
-  - generic/sample.pdf
-
+- generic/sample.pdf
 rubric:
   stand_up:
-    - id: http_client_installed
-      desc: requests or httpx listed as a dependency
-      kind: grep
-      in: "**/*.{toml,txt,cfg}"
-      pattern: "requests|httpx"
-    - id: correct_base_url
-      desc: uses api.reducto.ai as the base url (not platform.reducto.ai)
-      kind: grep
-      in: "**/*.py"
-      pattern: 'api\.reducto\.ai'
-      tags: [base_url]
-    - id: reducto_code_compiles
-      desc: python code imports cleanly
-      kind: shell
-      cmd: "python -c 'import ast, pathlib; [ast.parse(p.read_text()) for p in pathlib.Path(\".\").rglob(\"*.py\")]'"
-      timeout: 30
-    - id: no_hardcoded_api_key
-      desc: api key not hardcoded in source
-      kind: not_grep
-      in: "**/*.py"
-      pattern: 'api_key\s*=\s*"(sk|r)_'
-      tags: [auth]
-
+  - id: http_client_installed
+    desc: requests or httpx listed as a dependency
+    kind: grep
+    in: '**/*.{toml,txt,cfg}'
+    pattern: requests|httpx
+  - id: correct_base_url
+    desc: uses api.reducto.ai as the base url (not platform.reducto.ai)
+    kind: grep
+    in: '**/*.py'
+    pattern: api\.reducto\.ai
+    tags:
+    - base_url
+  - id: reducto_code_compiles
+    desc: python code imports cleanly
+    kind: shell
+    cmd: python -c 'import ast, pathlib; [ast.parse(p.read_text()) for p in pathlib.Path(".").rglob("*.py")]'
+    timeout: 30
+  - id: no_hardcoded_api_key
+    desc: api key not hardcoded in source
+    kind: not_grep
+    in: '**/*.py'
+    pattern: api_key\s*=\s*"(sk|r)_
+    tags:
+    - auth
   config_knowledge:
-    - id: calls_parse_endpoint
-      desc: makes a POST to /parse or /parse/run on the reducto api
-      kind: judge
-      tags: [right_tool, endpoint_shape]
-      paths: ["**/*.py"]
-      prompt: |
-        does the code POST to the reducto /parse or /parse/run endpoint? if it calls
-        a different endpoint, or tries to do parsing locally / client-side, fail.
-    - id: upload_returns_file_id
-      desc: upload returns a file_id that's used as input to /parse
-      kind: judge
-      tags: [params_shape]
-      paths: ["**/*.py"]
-      prompt: |
-        does the upload flow POST to /upload (or equivalent), capture the returned
-        file_id (or reducto:// reference), and pass it to the parse call as the
-        document/input? passing a local filesystem path directly to /parse fails.
-    - id: handles_urlresult
-      desc: handles URLResult from parse (large docs return a presigned url)
-      kind: judge
-      tags: [urlresult, response_shape]
-      paths: ["**/*.py"]
-      prompt: |
-        parse responses can be inline chunks or a URLResult with a presigned url
-        (`result_type == "url"` or `result.type == "url"`). does the code branch
-        on the result type and fetch the url when present? silently assuming
-        inline fails this check.
-    - id: chat_uses_parsed_text
-      desc: chat flow sends parsed document text to the llm as context (not stubbed)
-      kind: judge
-      paths: ["**/*.py"]
-      prompt: |
-        does the chat/llm flow feed the parsed document text into the llm call
-        as context? a stubbed chat that ignores the parse output fails this.
+  - id: calls_parse_endpoint
+    desc: makes a POST to /parse or /parse/run on the reducto api
+    kind: judge
+    tags:
+    - right_tool
+    - endpoint_shape
+    paths:
+    - '**/*.py'
+    prompt: 'does the code POST to the reducto /parse or /parse/run endpoint? if it calls
 
+      a different endpoint, or tries to do parsing locally / client-side, fail.
+
+      '
+  - id: upload_returns_file_id
+    desc: upload returns a file_id that's used as input to /parse
+    kind: judge
+    tags:
+    - params_shape
+    paths:
+    - '**/*.py'
+    prompt: 'does the upload flow POST to /upload (or equivalent), capture the returned
+
+      file_id (or reducto:// reference), and pass it to the parse call as the
+
+      document/input? passing a local filesystem path directly to /parse fails.
+
+      '
+  - id: handles_urlresult
+    desc: handles URLResult from parse (large docs return a presigned url)
+    kind: judge
+    tags:
+    - urlresult
+    - response_shape
+    paths:
+    - '**/*.py'
+    prompt: 'parse responses can be inline chunks or a URLResult with a presigned url
+
+      (`result_type == "url"` or `result.type == "url"`). does the code branch
+
+      on the result type and fetch the url when present? silently assuming
+
+      inline fails this check.
+
+      '
+  - id: chat_uses_parsed_text
+    desc: chat flow sends parsed document text to the llm as context (not stubbed)
+    kind: judge
+    paths:
+    - '**/*.py'
+    prompt: 'does the chat/llm flow feed the parsed document text into the llm call
+
+      as context? a stubbed chat that ignores the parse output fails this.
+
+      '
   mcp_usage:
-    - id: consulted_mcp
-      desc: agent invoked at least one reducto mcp tool
-      kind: tool_used
-      pattern: "^mcp__reducto__"
-      min_count: 1
-    - id: used_upload_tool
-      desc: agent called the mcp upload tool
-      kind: tool_used
-      pattern: "mcp__reducto__upload"
-    - id: used_parse_tool
-      desc: agent called the mcp parse tool
-      kind: tool_used
-      pattern: "mcp__reducto__parse"
-      tags: [right_tool]
-    - id: judge_engagement
-      desc: agent used the mcp as a reference throughout
-      kind: judge_transcript
-      prompt: |
-        did the agent use the mcp as a reference — calling tools to confirm
-        endpoint shapes / response shapes / parameter names — or invoke it once
-        at setup and then code from memory? for an http-env scenario the agent
-        should still lean on the mcp at dev time to avoid the common wrong-host
-        and wrong-endpoint mistakes, even if the final app uses rest at runtime.
+  - id: consulted_mcp
+    desc: agent invoked at least one reducto mcp tool
+    kind: tool_used
+    pattern: ^mcp__reducto__
+    min_count: 1
+  - id: used_upload_tool
+    desc: agent called the mcp upload tool
+    kind: tool_used
+    pattern: mcp__reducto__upload
+  - id: used_parse_tool
+    desc: agent called the mcp parse tool
+    kind: tool_used
+    pattern: mcp__reducto__parse
+    tags:
+    - right_tool
+  - id: judge_engagement
+    desc: agent used the mcp as a reference throughout
+    kind: judge_transcript
+    prompt: 'did the agent use the mcp as a reference — calling tools to confirm
 
+      endpoint shapes / response shapes / parameter names — or invoke it once
+
+      at setup and then code from memory? for an http-env scenario the agent
+
+      should still lean on the mcp at dev time to avoid the common wrong-host
+
+      and wrong-endpoint mistakes, even if the final app uses rest at runtime.
+
+      '
   outcome_success:
-    - id: parse_fixture_produces_text
-      desc: generated REST parse integration parses the fixture PDF through Reducto and returns non-empty text/chunks
-      kind: shell
-      timeout: 120
-      tags: [live_api, parse, fixture]
-      cmd: |
-        set -e
-        test -n "$REDUCTO_API_KEY"
-        if [ -f requirements.txt ]; then python -m pip install -q -r requirements.txt; fi
-        if [ -f pyproject.toml ]; then python -m pip install -q . || true; fi
-        cat > .reducto_outcome_parse.py <<'PY'
-        import asyncio
-        import importlib.util
-        import inspect
-        import os
-        import pathlib
-        import sys
-
-        os.environ.setdefault("OPENAI_API_KEY", "test")
-        os.environ.setdefault("STREAMLIT_SERVER_HEADLESS", "true")
-        root = pathlib.Path(".").resolve()
-        fixtures = sorted((root / "fixtures").glob("*.pdf"))
-        if not fixtures:
-            raise SystemExit("no PDF fixture found in ./fixtures")
-        fixture = fixtures[0]
-        sys.path.insert(0, str(root))
-
-        def text_from(value):
-            if inspect.isawaitable(value):
-                value = asyncio.run(value)
-            if hasattr(value, "status_code") and value.status_code >= 400:
-                raise RuntimeError(f"route returned status {value.status_code}")
-            if hasattr(value, "get_json"):
-                try:
-                    value = value.get_json()
-                except Exception:
-                    value = value.get_data(as_text=True)
-            if hasattr(value, "json") and callable(value.json):
-                try:
-                    value = value.json()
-                except Exception:
-                    pass
-            if not isinstance(value, (str, bytes, dict, list, tuple)) and hasattr(value, "__dict__"):
-                value = vars(value)
-            if isinstance(value, bytes):
-                return value.decode("utf-8", "ignore")
-            if isinstance(value, str):
-                return value
-            if isinstance(value, dict):
-                return " ".join(text_from(v) for v in value.values())
-            if isinstance(value, (list, tuple)):
-                return " ".join(text_from(v) for v in value)
-            return ""
-
-        def load(path):
-            name = "outcome_" + "_".join(path.with_suffix("").parts)
-            spec = importlib.util.spec_from_file_location(name, path)
-            if not spec or not spec.loader:
-                raise ImportError(path)
-            module = importlib.util.module_from_spec(spec)
-            sys.modules[name] = module
-            spec.loader.exec_module(module)
-            return module
-
-        def try_function(fn):
-            params = list(inspect.signature(fn).parameters.values())
-            attempts = []
-            if len(params) == 1:
-                attempts += [(str(fixture),), (fixture,), (fixture.read_bytes(),)]
-            elif len(params) == 2:
-                attempts += [(str(fixture), os.environ["REDUCTO_API_KEY"]), (str(fixture), "Summarize this document.")]
-            for args in attempts:
-                try:
-                    if len(text_from(fn(*args)).strip()) >= 20:
-                        return True
-                except Exception:
-                    pass
-            return False
-
-        errors = []
-        for path in root.rglob("*.py"):
-            if any(part in {".venv", "venv", "__pycache__"} for part in path.parts) or path.name.startswith(".reducto_outcome"):
-                continue
-            source = path.read_text(errors="ignore")
-            if "parse" not in source.lower() or "api.reducto.ai" not in source:
-                continue
-            try:
-                module = load(path)
-            except Exception as exc:
-                errors.append(f"{path}: import failed: {type(exc).__name__}: {exc}")
-                continue
-            for obj in vars(module).values():
-                if hasattr(obj, "test_client"):
-                    client = obj.test_client()
-                    for rule in getattr(obj, "url_map").iter_rules():
-                        if "POST" not in rule.methods:
-                            continue
-                        for field in ["file", "files", "pdf", "document"]:
-                            with fixture.open("rb") as fh:
-                                resp = client.post(rule.rule, data={field: (fh, fixture.name)}, content_type="multipart/form-data")
-                            if len(text_from(resp).strip()) >= 20:
-                                print("SUCCESS")
-                                raise SystemExit(0)
-            for _, fn in inspect.getmembers(module, inspect.isfunction):
-                try:
-                    fn_source = inspect.getsource(fn).lower()
-                except OSError:
-                    fn_source = fn.__name__.lower()
-                if "parse" in fn_source and try_function(fn):
-                    print("SUCCESS")
-                    raise SystemExit(0)
-        raise SystemExit("no generated REST parse integration produced non-empty text; " + " | ".join(errors[-3:]))
-        PY
-        python .reducto_outcome_parse.py
-
+  - id: parse_fixture_produces_text
+    desc: reducto API parses the fixture PDF and returns non-empty chunks
+    kind: shell
+    timeout: 120
+    tags:
+    - live_api
+    - parse
+    - fixture
+    cmd: "set -e\nuv run --project /Users/omar/reducto/mcp-server-reducto python3 -c \"\nfrom mcp_server_reducto.config import read_saved_api_key\nimport reducto, pathlib\n\nimport pathlib\ndef find_fixtures():\n\
+      \    d = pathlib.Path('.').resolve()\n    for _ in range(4):\n        fx = sorted(d.glob('fixtures/*.pdf')) + sorted(d.glob('fixtures/**/*.pdf'))\n        if fx: return fx\n        d = d.parent\n\
+      \    raise SystemExit('no fixture PDFs found (searched up to ' + str(d) + ')')\n\nkey = read_saved_api_key()\nif not key: raise SystemExit('no reducto key in ~/.reducto/config.yaml')\nclient = reducto.Reducto(api_key=key)\n\
+      fx = find_fixtures()\nupload = client.upload(file=fx[0].read_bytes(), extension='.pdf')\nr = client.parse.run(input=upload.file_id)\nchunks = r.result.chunks if hasattr(r.result, 'chunks') else []\n\
+      assert len(chunks) > 0, 'no chunks returned'\nassert len(chunks[0].content) > 10, 'chunk content too short'\nprint(f'SUCCESS: parsed {len(chunks)} chunks')\n\"\n"
   pass_threshold: 0.8
-
 known_failure_signals:
-  - id: wrong_base_url_platform
-    desc: uses platform.reducto.ai as base url (wrong — it's api.reducto.ai)
-    kind: grep
-    in: "**/*.py"
-    pattern: 'platform\.reducto\.ai'
-    penalizes: [stand_up, config_knowledge]
-    tags: [base_url]
-  - id: hand_parsed_config_yaml
-    desc: agent hand-parses ~/.reducto/config.yaml for the api key
-    kind: grep
-    in: "**/*.py"
-    pattern: '\.reducto/config\.yaml'
-    penalizes: [stand_up, mcp_usage]
-    tags: [auth]
+- id: wrong_base_url_platform
+  desc: uses platform.reducto.ai as base url (wrong — it's api.reducto.ai)
+  kind: grep
+  in: '**/*.py'
+  pattern: platform\.reducto\.ai
+  penalizes:
+  - stand_up
+  - config_knowledge
+  tags:
+  - base_url
+- id: hand_parsed_config_yaml
+  desc: agent hand-parses ~/.reducto/config.yaml for the api key
+  kind: grep
+  in: '**/*.py'
+  pattern: \.reducto/config\.yaml
+  penalizes:
+  - stand_up
+  - mcp_usage
+  tags:
+  - auth
+notes: 'http × parse is a high-priority cell — parse is one of the two core reducto
 
-notes: |
-  http × parse is a high-priority cell — parse is one of the two core reducto
   operations, and http is a common deployment shape (no sdk dependency).
+
   mirrors the shape of http × split (restsplit) but centers parse instead.
+
+  '

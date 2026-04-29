@@ -3,120 +3,154 @@ environment: http
 feature: split
 mode: greenfield
 source: ported from testapps/restsplit
+seed_prompt: 'i''m looking to create an application that reads textbooks, splits them by chapter,
 
-seed_prompt: |
-  i'm looking to create an application that reads textbooks, splits them by chapter,
   and summarizes each chapter using reducto. set this up with the rest api (not the
+
   sdk). i want the frontend to be python — make a streamlit app.
 
+  '
 fixture:
-  - textbooks/sample_textbook.pdf
-
+- textbooks/sample_textbook.pdf
 rubric:
   stand_up:
-    - id: http_client_installed
-      desc: requests or httpx listed as a dependency
-      kind: grep
-      in: "**/*.{toml,txt,cfg}"
-      pattern: "requests|httpx"
-    - id: correct_base_url
-      desc: uses api.reducto.ai as the base url (not platform.reducto.ai)
-      kind: grep
-      in: "**/*.py"
-      pattern: 'api\.reducto\.ai'
-      tags: [base_url]
-    - id: reducto_code_compiles
-      desc: python code imports cleanly
-      kind: shell
-      cmd: "python -c 'import ast, pathlib; [ast.parse(p.read_text()) for p in pathlib.Path(\".\").rglob(\"*.py\")]'"
-      timeout: 30
-    - id: no_hardcoded_api_key
-      desc: api key not hardcoded in source
-      kind: not_grep
-      in: "**/*.py"
-      pattern: 'api_key\s*=\s*"(sk|r)_'
-      tags: [auth]
-
-  config_knowledge:
-    - id: calls_split_endpoint
-      desc: makes a POST to /split or /split/run on the reducto api
-      kind: judge
-      tags: [right_tool, endpoint_shape]
-      paths: ["**/*.py"]
-      prompt: |
-        does the code post to the reducto /split (or /split/run) endpoint to split the
-        document into chapters? if the code calls /parse and tries to split manually, fail.
-    - id: split_description_sane
-      desc: split_description describes chapter-level splits appropriately
-      kind: judge
-      tags: [schema_quality]
-      paths: ["**/*.py"]
-      prompt: |
-        is a split_description payload passed that describes chapter-level splitting
-        (one entry per chapter, with a useful description and split_rules)?
-        a trivial or missing split_description fails.
-    - id: reuses_parse_via_jobid
-      desc: reuses a parse job's output via jobid:// input to avoid re-parsing
-      kind: judge
-      tags: [perf]
-      paths: ["**/*.py"]
-      prompt: |
-        reducto supports passing a prior parse job via "jobid://<job_id>" as the split
-        input. does the code reuse a parse job id when splitting, rather than uploading
-        / parsing the doc again? failing to reuse fails this check.
-    - id: handles_urlresult
-      desc: handles URLResult from parse (large documents return a presigned url)
-      kind: judge
-      tags: [urlresult, response_shape]
-      paths: ["**/*.py"]
-      prompt: |
-        parse responses can be inline chunks or a URLResult with a presigned url.
-        does the code fetch the url when result.type !== "full" (or equivalent),
-        or assume inline and crash on large docs?
-
-  mcp_usage:
-    - id: consulted_mcp
-      desc: agent invoked at least one reducto mcp tool
-      kind: tool_used
-      pattern: "^mcp__reducto__"
-      min_count: 1
-    - id: used_split_tool
-      desc: agent called the mcp split tool
-      kind: tool_used
-      pattern: "mcp__reducto__split"
-      tags: [right_tool]
-    - id: used_upload_tool
-      desc: agent called the mcp upload tool
-      kind: tool_used
-      pattern: "mcp__reducto__upload"
-    - id: judge_engagement
-      desc: agent used the mcp as a reference throughout
-      kind: judge_transcript
-      prompt: |
-        did the agent treat the mcp as a reference, or invoke it once at setup and
-        code from memory? for a scenario that explicitly asks for rest, the agent
-        should still lean on the mcp to discover the correct endpoints + request shapes.
-
-  pass_threshold: 0.8
-
-known_failure_signals:
-  - id: wrong_base_url_platform
-    desc: uses platform.reducto.ai as base url (wrong — it's api.reducto.ai)
+  - id: http_client_installed
+    desc: requests or httpx listed as a dependency
     kind: grep
-    in: "**/*.py"
-    pattern: 'platform\.reducto\.ai'
-    penalizes: [stand_up, config_knowledge]
-    tags: [base_url]
-  - id: one_chapter_bug
-    desc: split call returns only one chapter despite a multi-chapter document
+    in: '**/*.{toml,txt,cfg}'
+    pattern: requests|httpx
+  - id: correct_base_url
+    desc: uses api.reducto.ai as the base url (not platform.reducto.ai)
+    kind: grep
+    in: '**/*.py'
+    pattern: api\.reducto\.ai
+    tags:
+    - base_url
+  - id: reducto_code_compiles
+    desc: python code imports cleanly
+    kind: shell
+    cmd: python -c 'import ast, pathlib; [ast.parse(p.read_text()) for p in pathlib.Path(".").rglob("*.py")]'
+    timeout: 30
+  - id: no_hardcoded_api_key
+    desc: api key not hardcoded in source
+    kind: not_grep
+    in: '**/*.py'
+    pattern: api_key\s*=\s*"(sk|r)_
+    tags:
+    - auth
+  config_knowledge:
+  - id: calls_split_endpoint
+    desc: makes a POST to /split or /split/run on the reducto api
     kind: judge
-    paths: ["**/*.py"]
-    prompt: |
-      does the code handle the case where split returns fewer chapters than expected?
-      a naive assumption that split always returns multiple sections (without log /
-      fallback / inspection) can mask the known one-chapter-returned bug.
-    penalizes: [config_knowledge]
-    tags: [split_quality]
-notes: |
-  real app hit wrong_base_url_platform (used platform.reducto.ai throughout) and
+    tags:
+    - right_tool
+    - endpoint_shape
+    paths:
+    - '**/*.py'
+    prompt: 'does the code post to the reducto /split (or /split/run) endpoint to split the
+
+      document into chapters? if the code calls /parse and tries to split manually, fail.
+
+      '
+  - id: split_description_sane
+    desc: split_description describes chapter-level splits appropriately
+    kind: judge
+    tags:
+    - schema_quality
+    paths:
+    - '**/*.py'
+    prompt: 'is a split_description payload passed that describes chapter-level splitting
+
+      (one entry per chapter, with a useful description and split_rules)?
+
+      a trivial or missing split_description fails.
+
+      '
+  - id: reuses_parse_via_jobid
+    desc: reuses a parse job's output via jobid:// input to avoid re-parsing
+    kind: judge
+    tags:
+    - perf
+    paths:
+    - '**/*.py'
+    prompt: 'reducto supports passing a prior parse job via "jobid://<job_id>" as the split
+
+      input. does the code reuse a parse job id when splitting, rather than uploading
+
+      / parsing the doc again? failing to reuse fails this check.
+
+      '
+  - id: handles_urlresult
+    desc: handles URLResult from parse (large documents return a presigned url)
+    kind: judge
+    tags:
+    - urlresult
+    - response_shape
+    paths:
+    - '**/*.py'
+    prompt: 'parse responses can be inline chunks or a URLResult with a presigned url.
+
+      does the code fetch the url when result.type !== "full" (or equivalent),
+
+      or assume inline and crash on large docs?
+
+      '
+  mcp_usage:
+  - id: consulted_mcp
+    desc: agent invoked at least one reducto mcp tool
+    kind: tool_used
+    pattern: ^mcp__reducto__
+    min_count: 1
+  - id: used_split_tool
+    desc: agent called the mcp split tool
+    kind: tool_used
+    pattern: mcp__reducto__split
+    tags:
+    - right_tool
+  - id: used_upload_tool
+    desc: agent called the mcp upload tool
+    kind: tool_used
+    pattern: mcp__reducto__upload
+  - id: judge_engagement
+    desc: agent used the mcp as a reference throughout
+    kind: judge_transcript
+    prompt: 'did the agent treat the mcp as a reference, or invoke it once at setup and
+
+      code from memory? for a scenario that explicitly asks for rest, the agent
+
+      should still lean on the mcp to discover the correct endpoints + request shapes.
+
+      '
+  pass_threshold: 0.8
+known_failure_signals:
+- id: wrong_base_url_platform
+  desc: uses platform.reducto.ai as base url (wrong — it's api.reducto.ai)
+  kind: grep
+  in: '**/*.py'
+  pattern: platform\.reducto\.ai
+  penalizes:
+  - stand_up
+  - config_knowledge
+  tags:
+  - base_url
+- id: one_chapter_bug
+  desc: split call returns only one chapter despite a multi-chapter document
+  kind: judge
+  paths:
+  - '**/*.py'
+  prompt: 'does the code handle the case where split returns fewer chapters than expected?
+
+    a naive assumption that split always returns multiple sections (without log /
+
+    fallback / inspection) can mask the known one-chapter-returned bug.
+
+    '
+  penalizes:
+  - config_knowledge
+  tags:
+  - split_quality
+notes: 'real app hit wrong_base_url_platform (used platform.reducto.ai throughout) and
+
   the one-chapter bug (split returned a single section for a multi-chapter textbook).
+
+  '

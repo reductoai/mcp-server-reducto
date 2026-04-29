@@ -3,263 +3,180 @@ environment: node_sdk
 feature: extract
 mode: greenfield
 source: ported from testapps/invoice-tracker
+seed_prompt: 'i want to make an application which takes a folder of invoice statements, and puts
 
-seed_prompt: |
-  i want to make an application which takes a folder of invoice statements, and puts
   together a list of total expenditures, broken down via category, per quarter for a business.
+
   (1) make this a nextjs app
+
   (2) render them per invoice
+
   (3) make it an excel-like table, just use some react spreadsheet package
-  (4) it shouldn't be a cli, it should have an upload ui component.
+
+  (4) it shouldn''t be a cli, it should have an upload ui component.
+
   use the reducto mcp to wire up reducto with the node sdk.
 
+  '
 fixture:
-  - invoices/sample_invoice_1.pdf
-  - invoices/sample_invoice_2.pdf
-
+- invoices/sample_invoice_1.pdf
+- invoices/sample_invoice_2.pdf
 rubric:
   stand_up:
-    - id: reductoai_installed
-      desc: reductoai node sdk listed as dependency
-      kind: grep
-      in: "**/package.json"
-      pattern: '"reductoai"'
-    - id: reducto_client_instantiated
-      desc: reducto client instantiated somewhere in the codebase
-      kind: grep
-      in: "**/*.ts"
-      pattern: "new Reducto"
-    - id: reducto_code_compiles
-      desc: reducto-touching code compiles (full app build as a proxy)
-      kind: shell
-      cmd: "npm install && npx next build"
-      timeout: 300
-    - id: no_hardcoded_api_key
-      desc: api key not hardcoded in source
-      kind: not_grep
-      in: "**/*.ts"
-      pattern: 'REDUCTO_API_KEY\s*=\s*"[^"]'
-      tags: [auth]
-
+  - id: reductoai_installed
+    desc: reductoai node sdk listed as dependency
+    kind: grep
+    in: '**/package.json'
+    pattern: '"reductoai"'
+  - id: reducto_client_instantiated
+    desc: reducto client instantiated somewhere in the codebase
+    kind: grep
+    in: '**/*.ts'
+    pattern: new Reducto
+  - id: reducto_code_compiles
+    desc: reducto-touching code compiles (full app build as a proxy)
+    kind: shell
+    cmd: npm install && npx next build
+    timeout: 300
+  - id: no_hardcoded_api_key
+    desc: api key not hardcoded in source
+    kind: not_grep
+    in: '**/*.ts'
+    pattern: REDUCTO_API_KEY\s*=\s*"[^"]
+    tags:
+    - auth
   config_knowledge:
-    - id: uses_extract_run
-      desc: uses client.extract.run with a schema (not raw fetch, not parse)
-      kind: judge
-      tags: [right_tool]
-      paths: ["**/lib/*.ts", "**/api/**/*.ts"]
-      prompt: |
-        does the reducto-touching code use client.extract.run({input: file_id, schema: ...})
-        for structured extraction? if the code rolls raw http or uses client.parse.run
-        for schema extraction instead, fail this check.
-    - id: invoice_schema_defined
-      desc: extract schema has sensible fields for an invoice
-      kind: judge
-      tags: [schema_quality]
-      paths: ["**/lib/*.ts", "**/api/**/*.ts"]
-      prompt: |
-        is there a json schema passed to extract that captures invoice fields —
-        at minimum vendor, invoice_date, total, and category? a missing or trivial
-        schema fails this check.
-    - id: handles_urlresult
-      desc: handles URLResult from extract (not just assumes inline result)
-      kind: judge
-      tags: [urlresult, response_shape]
-      paths: ["**/lib/*.ts", "**/api/**/*.ts"]
-      prompt: |
-        extract.run can return inline structured data or a URLResult (presigned url).
-        does the code either fetch the URL when result.type !== "full", or explicitly
-        surface it to the user? silently assuming inline should fail.
-    - id: quarterly_aggregation_present
-      desc: aggregation computes quarterly totals by category
-      kind: judge
-      paths: ["**/lib/*.ts", "**/components/*.tsx"]
-      prompt: |
-        is there code that aggregates extracted invoices into quarterly totals
-        broken down by category? a stubbed or missing aggregator fails this.
+  - id: uses_extract_run
+    desc: uses client.extract.run with a schema (not raw fetch, not parse)
+    kind: judge
+    tags:
+    - right_tool
+    paths:
+    - '**/lib/*.ts'
+    - '**/api/**/*.ts'
+    prompt: 'does the reducto-touching code use client.extract.run({input: file_id, schema: ...})
 
+      for structured extraction? if the code rolls raw http or uses client.parse.run
+
+      for schema extraction instead, fail this check.
+
+      '
+  - id: invoice_schema_defined
+    desc: extract schema has sensible fields for an invoice
+    kind: judge
+    tags:
+    - schema_quality
+    paths:
+    - '**/lib/*.ts'
+    - '**/api/**/*.ts'
+    prompt: 'is there a json schema passed to extract that captures invoice fields —
+
+      at minimum vendor, invoice_date, total, and category? a missing or trivial
+
+      schema fails this check.
+
+      '
+  - id: handles_urlresult
+    desc: handles URLResult from extract (not just assumes inline result)
+    kind: judge
+    tags:
+    - urlresult
+    - response_shape
+    paths:
+    - '**/lib/*.ts'
+    - '**/api/**/*.ts'
+    prompt: 'extract.run can return inline structured data or a URLResult (presigned url).
+
+      does the code either fetch the URL when result.type !== "full", or explicitly
+
+      surface it to the user? silently assuming inline should fail.
+
+      '
+  - id: quarterly_aggregation_present
+    desc: aggregation computes quarterly totals by category
+    kind: judge
+    paths:
+    - '**/lib/*.ts'
+    - '**/components/*.tsx'
+    prompt: 'is there code that aggregates extracted invoices into quarterly totals
+
+      broken down by category? a stubbed or missing aggregator fails this.
+
+      '
   mcp_usage:
-    - id: consulted_mcp
-      desc: agent invoked at least one reducto mcp tool
-      kind: tool_used
-      pattern: "^mcp__reducto__"
-      min_count: 1
-    - id: used_upload_tool
-      desc: agent called the mcp upload tool
-      kind: tool_used
-      pattern: "mcp__reducto__upload"
-    - id: used_extract_tool
-      desc: agent called the mcp extract tool
-      kind: tool_used
-      pattern: "mcp__reducto__extract"
-      tags: [right_tool]
-    - id: judge_engagement
-      desc: agent used the mcp as a reference throughout, not just at setup
-      kind: judge_transcript
-      prompt: |
-        did the agent treat the reducto mcp as a reference — calling tools to validate
-        schemas, response shapes, or options — or invoke it once at setup and then
-        code from memory? one-and-done usage fails.
+  - id: consulted_mcp
+    desc: agent invoked at least one reducto mcp tool
+    kind: tool_used
+    pattern: ^mcp__reducto__
+    min_count: 1
+  - id: used_upload_tool
+    desc: agent called the mcp upload tool
+    kind: tool_used
+    pattern: mcp__reducto__upload
+  - id: used_extract_tool
+    desc: agent called the mcp extract tool
+    kind: tool_used
+    pattern: mcp__reducto__extract
+    tags:
+    - right_tool
+  - id: judge_engagement
+    desc: agent used the mcp as a reference throughout, not just at setup
+    kind: judge_transcript
+    prompt: 'did the agent treat the reducto mcp as a reference — calling tools to validate
 
+      schemas, response shapes, or options — or invoke it once at setup and then
+
+      code from memory? one-and-done usage fails.
+
+      '
   outcome_success:
-    - id: extract_fixture_produces_invoice_fields
-      desc: generated Next/Node extract integration extracts vendor, date, total, and category from a fixture invoice PDF
-      kind: shell
-      timeout: 180
-      tags: [live_api, extract, fixture, schema_quality]
-      cmd: |
-        set -e
-        test -n "$REDUCTO_API_KEY"
-        if [ -f package.json ]; then npm install; fi
-        npm install --no-save tsx >/dev/null 2>&1
-        cat > .reducto_outcome_extract.ts <<'TS'
-        import fs from "node:fs";
-        import path from "node:path";
-        import { pathToFileURL } from "node:url";
-
-        const root = process.cwd();
-        const fixtureDir = path.join(root, "fixtures");
-        const fixture = fs.readdirSync(fixtureDir).filter((name) => name.endsWith(".pdf")).sort()[0];
-        if (!fixture) throw new Error("no PDF fixture found in ./fixtures");
-        const fixturePath = path.join(fixtureDir, fixture);
-        const bytes = fs.readFileSync(fixturePath);
-        const schema = {
-          type: "object",
-          properties: {
-            vendor: { type: "string" },
-            date: { type: "string" },
-            total: { type: "number" },
-            category: { type: "string" },
-          },
-          required: ["vendor", "date", "total", "category"],
-        };
-
-        async function materialize(value: any): Promise<any> {
-          value = await value;
-          if (value instanceof Response) {
-            if (!value.ok) throw new Error(`route returned status ${value.status}`);
-            const text = await value.text();
-            try {
-              return JSON.parse(text);
-            } catch {
-              return text;
-            }
-          }
-          if (value && typeof value.json === "function") {
-            try {
-              return await value.json();
-            } catch {}
-          }
-          return value;
-        }
-
-        async function keys(value: any): Promise<Set<string>> {
-          value = await materialize(value);
-          const out = new Set<string>();
-          if (Array.isArray(value)) {
-            for (const item of value) for (const key of await keys(item)) out.add(key);
-          } else if (value && typeof value === "object") {
-            for (const [key, child] of Object.entries(value)) {
-              out.add(key.toLowerCase());
-              for (const nested of await keys(child)) out.add(nested);
-            }
-          } else if (typeof value === "string") {
-            try {
-              for (const key of await keys(JSON.parse(value))) out.add(key);
-            } catch {}
-          }
-          return out;
-        }
-
-        async function hasInvoiceFields(value: any): Promise<boolean> {
-          const found = await keys(value);
-          const list = [...found];
-          return list.some((key) => key.includes("vendor") || key.includes("merchant"))
-            && list.some((key) => key.includes("date"))
-            && list.some((key) => key.includes("total") || key.includes("amount"))
-            && list.some((key) => key.includes("category"));
-        }
-
-        function walk(dir: string): string[] {
-          const out: string[] = [];
-          for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-            if (["node_modules", ".next", "dist", "build", ".git"].includes(entry.name)) continue;
-            const full = path.join(dir, entry.name);
-            if (entry.isDirectory()) out.push(...walk(full));
-            else if (/\.(ts|js|mjs)$/.test(entry.name) && !entry.name.startsWith(".reducto_outcome")) out.push(full);
-          }
-          return out;
-        }
-
-        async function callPost(mod: any): Promise<boolean> {
-          if (typeof mod.POST !== "function") return false;
-          const fd = new FormData();
-          for (const name of ["file", "files", "invoice", "invoices", "pdf"]) {
-            fd.append(name, new Blob([bytes], { type: "application/pdf" }), fixture);
-          }
-          fd.set("schema", JSON.stringify(schema));
-          const req = new Request("http://localhost/api/outcome", { method: "POST", body: fd });
-          return hasInvoiceFields(mod.POST(req));
-        }
-
-        async function callExport(fn: Function): Promise<boolean> {
-          const attempts: any[][] = [[fixturePath], [fixturePath, schema], [new Blob([bytes], { type: "application/pdf" }), schema], [bytes, schema]];
-          for (const args of attempts) {
-            try {
-              if (await hasInvoiceFields(fn(...args))) return true;
-            } catch {}
-          }
-          return false;
-        }
-
-        const errors: string[] = [];
-        for (const file of walk(root)) {
-          const source = fs.readFileSync(file, "utf8");
-          if (!source.toLowerCase().includes("extract") || !source.includes("Reducto")) continue;
-          try {
-            const mod = await import(pathToFileURL(file).href + `?outcome=${Date.now()}`);
-            if (await callPost(mod)) {
-              console.log("SUCCESS");
-              process.exit(0);
-            }
-            for (const value of Object.values(mod)) {
-              if (typeof value === "function" && value.toString().toLowerCase().includes("extract") && await callExport(value)) {
-                console.log("SUCCESS");
-                process.exit(0);
-              }
-            }
-          } catch (err: any) {
-            errors.push(`${path.relative(root, file)}: ${err?.message || err}`);
-          }
-        }
-        throw new Error("no generated extract integration produced invoice fields; " + errors.slice(-3).join(" | "));
-        TS
-        npx tsx .reducto_outcome_extract.ts
-
+  - id: extract_fixture_produces_invoice_fields
+    desc: reducto API extracts vendor, date, total, category from the fixture invoice PDF
+    kind: shell
+    timeout: 120
+    tags:
+    - live_api
+    - extract
+    - fixture
+    cmd: "set -e\nuv run --project /Users/omar/reducto/mcp-server-reducto python3 -c \"\nfrom mcp_server_reducto.config import read_saved_api_key\nimport reducto, pathlib, json\n\nimport pathlib\ndef find_fixtures():\n\
+      \    d = pathlib.Path('.').resolve()\n    for _ in range(4):\n        fx = sorted(d.glob('fixtures/*.pdf')) + sorted(d.glob('fixtures/**/*.pdf'))\n        if fx: return fx\n        d = d.parent\n\
+      \    raise SystemExit('no fixture PDFs found (searched up to ' + str(d) + ')')\n\nkey = read_saved_api_key()\nif not key: raise SystemExit('no reducto key in ~/.reducto/config.yaml')\nclient = reducto.Reducto(api_key=key)\n\
+      fx = find_fixtures()\nupload = client.upload(file=fx[0].read_bytes(), extension='.pdf')\nr = client.extract.run(input=upload.file_id, instructions={'schema': {\n    'type': 'object',\n    'properties':\
+      \ {'vendor': {'type': 'string'}, 'date': {'type': 'string'},\n                    'total': {'type': 'number'}, 'category': {'type': 'string'}},\n    'required': ['vendor', 'date', 'total', 'category']\n\
+      }})\ndata = r.result[0] if isinstance(r.result, list) else r.result\nassert data, 'no extraction result'\nprint('SUCCESS: extracted ' + json.dumps(data, default=str)[:200])\n\"\n"
   pass_threshold: 0.8
-
 known_failure_signals:
-  - id: file_param_cast_hack
-    desc: "casts upload({file}) to `as unknown as string` to work around node sdk upload typing"
-    kind: grep
-    in: "**/*.ts"
-    pattern: 'as unknown as string|as unknown as \{\s*file:\s*string'
-    penalizes: [config_knowledge]
-    tags: [params_shape]
-  - id: rolled_raw_fetch_instead_of_sdk
-    desc: agent ignored the node sdk and wrote raw fetch to a reducto host
-    kind: grep
-    in: "**/*.ts"
-    pattern: 'fetch\(["`]https?://[^"`]*reducto'
-    penalizes: [stand_up, config_knowledge]
-    tags: [right_tool]
-  - id: hand_parsed_config_yaml
-    desc: agent hand-parses ~/.reducto/config.yaml for the api key
-    kind: grep
-    in: "**/*.{ts,tsx,js,mjs}"
-    pattern: '\.reducto/config\.yaml'
-    penalizes: [stand_up, mcp_usage]
-    tags: [auth]
+- id: file_param_cast_hack
+  desc: casts upload({file}) to `as unknown as string` to work around node sdk upload typing
+  kind: grep
+  in: '**/*.ts'
+  pattern: as unknown as string|as unknown as \{\s*file:\s*string
+  penalizes:
+  - config_knowledge
+  tags:
+  - params_shape
+- id: rolled_raw_fetch_instead_of_sdk
+  desc: agent ignored the node sdk and wrote raw fetch to a reducto host
+  kind: grep
+  in: '**/*.ts'
+  pattern: fetch\(["`]https?://[^"`]*reducto
+  penalizes:
+  - stand_up
+  - config_knowledge
+  tags:
+  - right_tool
+- id: hand_parsed_config_yaml
+  desc: agent hand-parses ~/.reducto/config.yaml for the api key
+  kind: grep
+  in: '**/*.{ts,tsx,js,mjs}'
+  pattern: \.reducto/config\.yaml
+  penalizes:
+  - stand_up
+  - mcp_usage
+  tags:
+  - auth
+notes: 'real app hit file_param_cast_hack. extract-specific failure mode: agent omits
 
-notes: |
-  real app hit file_param_cast_hack. extract-specific failure mode: agent omits
   required fields from the schema, or uses string types where numbers are expected.
+
+  '

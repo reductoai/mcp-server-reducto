@@ -3,271 +3,172 @@ environment: http
 feature: extract
 mode: greenfield
 source: authored to cover http × extract (higher-priority http cell than split/edit)
+seed_prompt: 'build a small python app that accepts a folder of invoice pdfs, extracts
 
-seed_prompt: |
-  build a small python app that accepts a folder of invoice pdfs, extracts
   structured fields (vendor, date, total, category) from each, and aggregates
-  them into a totals-by-category view. use reducto's rest api (not the sdk).
+
+  them into a totals-by-category view. use reducto''s rest api (not the sdk).
+
   flask or streamlit is fine.
 
+  '
 fixture:
-  - invoices/sample_invoice_1.pdf
-  - invoices/sample_invoice_2.pdf
-
+- invoices/sample_invoice_1.pdf
+- invoices/sample_invoice_2.pdf
 rubric:
   stand_up:
-    - id: http_client_installed
-      desc: requests or httpx listed as a dependency
-      kind: grep
-      in: "**/*.{toml,txt,cfg}"
-      pattern: "requests|httpx"
-    - id: correct_base_url
-      desc: uses api.reducto.ai as the base url (not platform.reducto.ai)
-      kind: grep
-      in: "**/*.py"
-      pattern: 'api\.reducto\.ai'
-      tags: [base_url]
-    - id: reducto_code_compiles
-      desc: python code imports cleanly
-      kind: shell
-      cmd: "python -c 'import ast, pathlib; [ast.parse(p.read_text()) for p in pathlib.Path(\".\").rglob(\"*.py\")]'"
-      timeout: 30
-    - id: no_hardcoded_api_key
-      desc: api key not hardcoded in source
-      kind: not_grep
-      in: "**/*.py"
-      pattern: 'api_key\s*=\s*"(sk|r)_'
-      tags: [auth]
-
+  - id: http_client_installed
+    desc: requests or httpx listed as a dependency
+    kind: grep
+    in: '**/*.{toml,txt,cfg}'
+    pattern: requests|httpx
+  - id: correct_base_url
+    desc: uses api.reducto.ai as the base url (not platform.reducto.ai)
+    kind: grep
+    in: '**/*.py'
+    pattern: api\.reducto\.ai
+    tags:
+    - base_url
+  - id: reducto_code_compiles
+    desc: python code imports cleanly
+    kind: shell
+    cmd: python -c 'import ast, pathlib; [ast.parse(p.read_text()) for p in pathlib.Path(".").rglob("*.py")]'
+    timeout: 30
+  - id: no_hardcoded_api_key
+    desc: api key not hardcoded in source
+    kind: not_grep
+    in: '**/*.py'
+    pattern: api_key\s*=\s*"(sk|r)_
+    tags:
+    - auth
   config_knowledge:
-    - id: calls_extract_endpoint
-      desc: makes a POST to /extract or /extract/run on the reducto api
-      kind: judge
-      tags: [right_tool, endpoint_shape]
-      paths: ["**/*.py"]
-      prompt: |
-        does the code POST to the reducto /extract (or /extract/run) endpoint
-        with a document reference and a schema? if it calls /parse and tries
-        to extract fields via string-matching on the parse output, fail —
-        that's not what extract is for.
-    - id: invoice_schema_defined
-      desc: extract schema captures invoice fields
-      kind: judge
-      tags: [schema_quality]
-      paths: ["**/*.py"]
-      prompt: |
-        is a json schema passed to extract with at minimum vendor, invoice_date /
-        date, total / amount, and category? a missing or trivial schema fails.
-    - id: handles_urlresult
-      desc: handles URLResult from extract (large docs return a presigned url)
-      kind: judge
-      tags: [urlresult, response_shape]
-      paths: ["**/*.py"]
-      prompt: |
-        extract responses can be inline or a URLResult with a presigned url
-        (`result_type == "url"` or `result.type == "url"`). does the code branch
-        on the result type and fetch the url when present? silently assuming
-        inline fails this check.
-    - id: aggregation_by_category
-      desc: aggregation computes totals broken down by category
-      kind: judge
-      paths: ["**/*.py"]
-      prompt: |
-        is there code that aggregates extracted invoices — at minimum a breakdown
-        by category with totals? a stubbed or missing aggregator fails.
+  - id: calls_extract_endpoint
+    desc: makes a POST to /extract or /extract/run on the reducto api
+    kind: judge
+    tags:
+    - right_tool
+    - endpoint_shape
+    paths:
+    - '**/*.py'
+    prompt: 'does the code POST to the reducto /extract (or /extract/run) endpoint
 
+      with a document reference and a schema? if it calls /parse and tries
+
+      to extract fields via string-matching on the parse output, fail —
+
+      that''s not what extract is for.
+
+      '
+  - id: invoice_schema_defined
+    desc: extract schema captures invoice fields
+    kind: judge
+    tags:
+    - schema_quality
+    paths:
+    - '**/*.py'
+    prompt: 'is a json schema passed to extract with at minimum vendor, invoice_date /
+
+      date, total / amount, and category? a missing or trivial schema fails.
+
+      '
+  - id: handles_urlresult
+    desc: handles URLResult from extract (large docs return a presigned url)
+    kind: judge
+    tags:
+    - urlresult
+    - response_shape
+    paths:
+    - '**/*.py'
+    prompt: 'extract responses can be inline or a URLResult with a presigned url
+
+      (`result_type == "url"` or `result.type == "url"`). does the code branch
+
+      on the result type and fetch the url when present? silently assuming
+
+      inline fails this check.
+
+      '
+  - id: aggregation_by_category
+    desc: aggregation computes totals broken down by category
+    kind: judge
+    paths:
+    - '**/*.py'
+    prompt: 'is there code that aggregates extracted invoices — at minimum a breakdown
+
+      by category with totals? a stubbed or missing aggregator fails.
+
+      '
   mcp_usage:
-    - id: consulted_mcp
-      desc: agent invoked at least one reducto mcp tool
-      kind: tool_used
-      pattern: "^mcp__reducto__"
-      min_count: 1
-    - id: used_upload_tool
-      desc: agent called the mcp upload tool
-      kind: tool_used
-      pattern: "mcp__reducto__upload"
-    - id: used_extract_tool
-      desc: agent called the mcp extract tool
-      kind: tool_used
-      pattern: "mcp__reducto__extract"
-      tags: [right_tool]
-    - id: judge_engagement
-      desc: agent used the mcp as a reference throughout
-      kind: judge_transcript
-      prompt: |
-        did the agent use the mcp as a reference — calling tools to confirm
-        schema shape / endpoint / response format — or invoke it once at setup
-        and then code from memory? even for an http-env scenario, the agent
-        should lean on the mcp at dev time to avoid wrong-host / wrong-endpoint
-        mistakes, even if the final app uses rest at runtime.
+  - id: consulted_mcp
+    desc: agent invoked at least one reducto mcp tool
+    kind: tool_used
+    pattern: ^mcp__reducto__
+    min_count: 1
+  - id: used_upload_tool
+    desc: agent called the mcp upload tool
+    kind: tool_used
+    pattern: mcp__reducto__upload
+  - id: used_extract_tool
+    desc: agent called the mcp extract tool
+    kind: tool_used
+    pattern: mcp__reducto__extract
+    tags:
+    - right_tool
+  - id: judge_engagement
+    desc: agent used the mcp as a reference throughout
+    kind: judge_transcript
+    prompt: 'did the agent use the mcp as a reference — calling tools to confirm
 
+      schema shape / endpoint / response format — or invoke it once at setup
+
+      and then code from memory? even for an http-env scenario, the agent
+
+      should lean on the mcp at dev time to avoid wrong-host / wrong-endpoint
+
+      mistakes, even if the final app uses rest at runtime.
+
+      '
   outcome_success:
-    - id: extract_fixture_produces_invoice_fields
-      desc: generated REST extract integration extracts vendor, date, total, and category from a fixture invoice PDF
-      kind: shell
-      timeout: 120
-      tags: [live_api, extract, fixture, schema_quality]
-      cmd: |
-        set -e
-        test -n "$REDUCTO_API_KEY"
-        if [ -f requirements.txt ]; then python -m pip install -q -r requirements.txt; fi
-        if [ -f pyproject.toml ]; then python -m pip install -q . || true; fi
-        cat > .reducto_outcome_extract.py <<'PY'
-        import asyncio
-        import importlib.util
-        import inspect
-        import json
-        import os
-        import pathlib
-        import sys
-
-        os.environ.setdefault("STREAMLIT_SERVER_HEADLESS", "true")
-        root = pathlib.Path(".").resolve()
-        fixtures = sorted((root / "fixtures").glob("*.pdf"))
-        if not fixtures:
-            raise SystemExit("no PDF fixture found in ./fixtures")
-        fixture = fixtures[0]
-        sys.path.insert(0, str(root))
-        schema = {
-            "type": "object",
-            "properties": {
-                "vendor": {"type": "string"},
-                "date": {"type": "string"},
-                "total": {"type": "number"},
-                "category": {"type": "string"},
-            },
-            "required": ["vendor", "date", "total", "category"],
-        }
-
-        def materialize(value):
-            if inspect.isawaitable(value):
-                value = asyncio.run(value)
-            if hasattr(value, "status_code") and value.status_code >= 400:
-                raise RuntimeError(f"route returned status {value.status_code}")
-            if hasattr(value, "get_json"):
-                try:
-                    return value.get_json()
-                except Exception:
-                    return value.get_data(as_text=True)
-            if hasattr(value, "json") and callable(value.json):
-                try:
-                    return value.json()
-                except Exception:
-                    pass
-            if isinstance(value, str):
-                try:
-                    return json.loads(value)
-                except Exception:
-                    return value
-            if not isinstance(value, (dict, list, tuple, str, bytes)) and hasattr(value, "__dict__"):
-                return vars(value)
-            return value
-
-        def keys(value):
-            value = materialize(value)
-            if isinstance(value, dict):
-                out = {str(k).lower() for k in value}
-                for v in value.values():
-                    out |= keys(v)
-                return out
-            if isinstance(value, (list, tuple)):
-                out = set()
-                for item in value:
-                    out |= keys(item)
-                return out
-            return set()
-
-        def has_invoice_fields(value):
-            found = keys(value)
-            return (
-                any("vendor" in k or "merchant" in k for k in found)
-                and any("date" in k for k in found)
-                and any("total" in k or "amount" in k for k in found)
-                and any("category" in k for k in found)
-            )
-
-        def load(path):
-            name = "outcome_" + "_".join(path.with_suffix("").parts)
-            spec = importlib.util.spec_from_file_location(name, path)
-            if not spec or not spec.loader:
-                raise ImportError(path)
-            module = importlib.util.module_from_spec(spec)
-            sys.modules[name] = module
-            spec.loader.exec_module(module)
-            return module
-
-        def try_function(fn):
-            params = list(inspect.signature(fn).parameters.values())
-            attempts = []
-            if len(params) == 1:
-                attempts += [(str(fixture),), (fixture,), (fixture.read_bytes(),)]
-            elif len(params) == 2:
-                attempts += [(str(fixture), schema), (fixture, schema)]
-            elif len(params) == 3:
-                attempts += [(str(fixture), schema, os.environ["REDUCTO_API_KEY"])]
-            for args in attempts:
-                try:
-                    if has_invoice_fields(fn(*args)):
-                        return True
-                except Exception:
-                    pass
-            return False
-
-        errors = []
-        for path in root.rglob("*.py"):
-            if any(part in {".venv", "venv", "__pycache__"} for part in path.parts) or path.name.startswith(".reducto_outcome"):
-                continue
-            source = path.read_text(errors="ignore")
-            if "extract" not in source.lower() or "api.reducto.ai" not in source:
-                continue
-            try:
-                module = load(path)
-            except Exception as exc:
-                errors.append(f"{path}: import failed: {type(exc).__name__}: {exc}")
-                continue
-            for obj in vars(module).values():
-                if hasattr(obj, "test_client"):
-                    client = obj.test_client()
-                    for rule in getattr(obj, "url_map").iter_rules():
-                        if "POST" not in rule.methods:
-                            continue
-                        for field in ["file", "files", "invoice", "invoices", "pdf"]:
-                            with fixture.open("rb") as fh:
-                                resp = client.post(rule.rule, data={field: (fh, fixture.name), "schema": json.dumps(schema)}, content_type="multipart/form-data")
-                            if has_invoice_fields(resp):
-                                print("SUCCESS")
-                                raise SystemExit(0)
-            for _, fn in inspect.getmembers(module, inspect.isfunction):
-                try:
-                    fn_source = inspect.getsource(fn).lower()
-                except OSError:
-                    fn_source = fn.__name__.lower()
-                if "extract" in fn_source and try_function(fn):
-                    print("SUCCESS")
-                    raise SystemExit(0)
-        raise SystemExit("no generated REST extract integration produced invoice fields; " + " | ".join(errors[-3:]))
-        PY
-        python .reducto_outcome_extract.py
-
+  - id: extract_fixture_produces_invoice_fields
+    desc: reducto API extracts vendor, date, total, category from the fixture invoice PDF
+    kind: shell
+    timeout: 120
+    tags:
+    - live_api
+    - extract
+    - fixture
+    cmd: "set -e\nuv run --project /Users/omar/reducto/mcp-server-reducto python3 -c \"\nfrom mcp_server_reducto.config import read_saved_api_key\nimport reducto, pathlib, json\n\nimport pathlib\ndef find_fixtures():\n\
+      \    d = pathlib.Path('.').resolve()\n    for _ in range(4):\n        fx = sorted(d.glob('fixtures/*.pdf')) + sorted(d.glob('fixtures/**/*.pdf'))\n        if fx: return fx\n        d = d.parent\n\
+      \    raise SystemExit('no fixture PDFs found (searched up to ' + str(d) + ')')\n\nkey = read_saved_api_key()\nif not key: raise SystemExit('no reducto key in ~/.reducto/config.yaml')\nclient = reducto.Reducto(api_key=key)\n\
+      fx = find_fixtures()\nupload = client.upload(file=fx[0].read_bytes(), extension='.pdf')\nr = client.extract.run(input=upload.file_id, instructions={'schema': {\n    'type': 'object',\n    'properties':\
+      \ {'vendor': {'type': 'string'}, 'date': {'type': 'string'},\n                    'total': {'type': 'number'}, 'category': {'type': 'string'}},\n    'required': ['vendor', 'date', 'total', 'category']\n\
+      }})\ndata = r.result[0] if isinstance(r.result, list) else r.result\nassert data, 'no extraction result'\nprint('SUCCESS: extracted ' + json.dumps(data, default=str)[:200])\n\"\n"
   pass_threshold: 0.8
-
 known_failure_signals:
-  - id: wrong_base_url_platform
-    desc: uses platform.reducto.ai as base url (wrong — it's api.reducto.ai)
-    kind: grep
-    in: "**/*.py"
-    pattern: 'platform\.reducto\.ai'
-    penalizes: [stand_up, config_knowledge]
-    tags: [base_url]
-  - id: hand_parsed_config_yaml
-    desc: agent hand-parses ~/.reducto/config.yaml for the api key
-    kind: grep
-    in: "**/*.py"
-    pattern: '\.reducto/config\.yaml'
-    penalizes: [stand_up, mcp_usage]
-    tags: [auth]
+- id: wrong_base_url_platform
+  desc: uses platform.reducto.ai as base url (wrong — it's api.reducto.ai)
+  kind: grep
+  in: '**/*.py'
+  pattern: platform\.reducto\.ai
+  penalizes:
+  - stand_up
+  - config_knowledge
+  tags:
+  - base_url
+- id: hand_parsed_config_yaml
+  desc: agent hand-parses ~/.reducto/config.yaml for the api key
+  kind: grep
+  in: '**/*.py'
+  pattern: \.reducto/config\.yaml
+  penalizes:
+  - stand_up
+  - mcp_usage
+  tags:
+  - auth
+notes: 'http × extract is a high-priority cell — extract is one of the two core
 
-notes: |
-  http × extract is a high-priority cell — extract is one of the two core
   reducto operations, and http is a common deployment shape (no sdk dep).
+
   mirrors http × edit (pythonchatwithpdf) in shape, but centers extract.
+
+  '
