@@ -72,22 +72,6 @@ def format_parse_response(response: Any) -> str:
     else:
         result["next_steps"] = "Use the parsed blocks directly, or run extract_data with a schema for JSON fields."
 
-    result["sdk_examples"] = {
-        "node": (
-            "import Reducto, { toFile } from 'reductoai';\n"
-            "const client = new Reducto();\n"
-            "const file = await toFile(bytes, 'doc.pdf');  // toFile is required for byte uploads\n"
-            "const upload = await client.upload({ file });\n"
-            "const result = await client.parse.run({ input: upload.file_id });"
-        ),
-        "python": (
-            "import reducto\n"
-            "client = reducto.Reducto()\n"
-            "upload = client.upload(file=open('doc.pdf', 'rb').read(), extension='.pdf')\n"
-            "result = client.parse.run(input=upload.file_id)"
-        ),
-    }
-
     return _truncate_response(result)
 
 
@@ -122,28 +106,6 @@ def format_extract_response(response: Any) -> str:
         )
     else:
         result["next_steps"] = "Read result for extracted fields; refine the schema if values are missing."
-
-    result["sdk_examples"] = {
-        "node": (
-            "import Reducto, { toFile } from 'reductoai';\n"
-            "const client = new Reducto();\n"
-            "const file = await toFile(bytes, 'doc.pdf');  // toFile is required for byte uploads\n"
-            "const upload = await client.upload({ file });\n"
-            "const result = await client.extract.run({\n"
-            "  input: upload.file_id,\n"
-            "  instructions: { schema: { type: 'object', properties: { ... }, required: [...] } }\n"
-            "});"
-        ),
-        "python": (
-            "import reducto\n"
-            "client = reducto.Reducto()\n"
-            "upload = client.upload(file=open('doc.pdf', 'rb').read(), extension='.pdf')\n"
-            "result = client.extract.run(\n"
-            "    input=upload.file_id,\n"
-            "    instructions={'schema': {'type': 'object', 'properties': {...}, 'required': [...]}}\n"
-            ")"
-        ),
-    }
 
     return _truncate_response(result)
 
@@ -232,27 +194,6 @@ def format_edit_response(response: Any) -> str:
 
     result["next_steps"] = "Download or pass document_url to another Reducto tool for follow-up processing."
 
-    result["sdk_examples"] = {
-        "node": (
-            "import Reducto from 'reductoai';\n"
-            "const client = new Reducto();\n"
-            "const result = await client.edit.run({\n"
-            "  document_url: 'reducto://...',\n"
-            "  edit_instructions: 'Fill Name with Jane Doe'\n"
-            "});\n"
-            "// if result.form_schema exists, pass it back on subsequent edits via options"
-        ),
-        "python": (
-            "import reducto\n"
-            "client = reducto.Reducto()\n"
-            "result = client.edit.run(\n"
-            "    document_url='reducto://...',\n"
-            "    edit_instructions='Fill Name with Jane Doe'\n"
-            ")\n"
-            "# cache result.form_schema for subsequent edits"
-        ),
-    }
-
     return _truncate_response(result)
 
 
@@ -272,24 +213,6 @@ def format_upload_response(response: Any) -> str:
             result["next_steps"] = f"Pass {document_url} as document_url to parse_document or extract_data."
         else:
             result["next_steps"] = "Pass the returned reducto:// URL as document_url to parse_document or extract_data."
-
-        result["sdk_examples"] = {
-            "node": (
-                "import Reducto, { toFile } from 'reductoai';\n"
-                "const client = new Reducto({ apiKey: process.env.REDUCTO_API_KEY });\n"
-                "// IMPORTANT: wrap bytes with toFile before uploading — raw bytes silently fail\n"
-                "const file = await toFile(buffer, 'document.pdf');\n"
-                "// SDK types say file:string but runtime accepts Uploadable — cast is required\n"
-                "const upload = await client.upload({ file: file as unknown as string });\n"
-                "// upload.file_id is now a reducto:// URL for parse/extract/split"
-            ),
-            "python": (
-                "import reducto\n"
-                "client = reducto.Reducto()  # reads REDUCTO_API_KEY from env\n"
-                "upload = client.upload(file=open('document.pdf', 'rb').read(), extension='.pdf')\n"
-                "# upload.file_id is now a reducto:// URL for parse/extract/split"
-            ),
-        }
     return _truncate_response(result)
 
 
@@ -298,7 +221,8 @@ def format_job_response(response: Any) -> str:
     data = _safe_model_dump(response)
     if isinstance(data, dict):
         _add_nested_url_result_warning(data)
-        status = str(data.get("status", "")).lower()
+        raw_status = data.get("status")
+        status = str(raw_status).lower() if raw_status else ""
         if status and status not in {"completed", "complete", "succeeded", "success"}:
             data["next_steps"] = "Job is not complete yet; call get_job again later before reading final results."
         else:
@@ -327,7 +251,7 @@ def _safe_model_dump(obj: Any) -> Any:
 
 def _url_from_result(obj: Any) -> str | None:
     """Return the result URL if obj looks like a Reducto UrlResult."""
-    if hasattr(obj, "type") and obj.type == "url" and hasattr(obj, "url"):
+    if hasattr(obj, "type") and obj.type == "url" and getattr(obj, "url", None):
         return str(obj.url)
     if isinstance(obj, dict) and obj.get("type") == "url" and obj.get("url"):
         return str(obj["url"])

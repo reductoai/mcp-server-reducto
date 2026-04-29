@@ -131,8 +131,9 @@ you can read it from there or ask the user to export it.
 Do NOT hardcode API keys in source. Do NOT skip the `.env` / `.env.local` setup — \
 without it the app will fail with "REDUCTO_API_KEY environment variable is missing."
 
-Each tool response includes `sdk_examples` with Node and Python snippets \
-showing the equivalent SDK call. Use those as the basis for generated app code.
+For SDK call patterns and code examples in your target language, call \
+`get_documentation` with the relevant topic (parse, extract, upload, etc.) \
+and use the returned snippets as the basis for generated app code.
 
 ## Common gotchas
 
