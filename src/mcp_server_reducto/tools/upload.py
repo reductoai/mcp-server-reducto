@@ -30,11 +30,13 @@ def _resolve_path(value: str) -> Path:
 @mcp.tool(
     name="upload_file",
     description=(
-        "Upload a file to Reducto's temporary storage (24-hour TTL). "
-        "Returns a reducto:// URL that can be used as document_url in other tools. "
-        "Accepts a local file path (e.g. './report.pdf', '/tmp/doc.pdf', '~/Documents/file.pdf') "
-        "or a public URL (e.g. 'https://example.com/report.pdf'). "
-        "Use this to process local files: upload first, then pass the reducto:// URL to parse_document or extract_data."
+        "Use this tool whenever a document is local or needs a reducto:// URL "
+        "before processing instead of writing upload HTTP yourself. "
+        "Accepts local paths or public URLs and returns a reducto:// document_url "
+        "for parse_document, extract_data, split_document, classify_document, or edit_document. "
+        "When writing Node SDK code outside MCP, wrap byte buffers with toFile(bytes, filename) "
+        "before client.upload({file}); raw bytes can fail silently. "
+        "See https://docs.reducto.ai"
     ),
 )
 async def upload_file(

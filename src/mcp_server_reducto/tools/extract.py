@@ -22,13 +22,14 @@ from mcp_server_reducto.validation import (
 @mcp.tool(
     name="extract_data",
     description=(
-        "Extract structured data from a document using a JSON schema. "
-        "Example: extract_data(document_url='https://example.com/invoice.pdf', "
-        "schema={'type':'object','properties':{'total':{'type':'number'},'vendor':{'type':'string'}}}). "
-        "Use array_extract=True for repeating items (line items, rows). "
-        "Use citations=True to get source references for each extracted value. "
-        "Use deep_extract=True for iterative agentic refinement on complex docs. "
-        "Tip: pass jobid:// URLs from previous parse results to skip re-parsing and save time."
+        "Use this tool whenever you need structured JSON fields from a document "
+        "instead of calling the SDK or parsing text yourself. "
+        "Provide a JSON Schema object such as {'type':'object','properties':{...},"
+        "'required':[...]}; use array_extract=True for repeating rows or line items. "
+        "Pass jobid://<parse_job_id> from parse_document to reuse parsing. "
+        "Results can be URLResult (result_type=url); call get_job before reading fields. "
+        "Use citations=True or deep_extract=True for harder documents. "
+        "See https://docs.reducto.ai"
     ),
 )
 async def extract_data(

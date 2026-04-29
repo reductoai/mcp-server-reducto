@@ -21,11 +21,12 @@ from mcp_server_reducto.validation import (
 @mcp.tool(
     name="classify_document",
     description=(
-        "Classify a document into one of the provided categories. "
-        "Example: classify_document(document_url='https://example.com/doc.pdf', "
-        "categories=[{'category':'invoice','criteria':['has billing info','has line items']},"
-        "{'category':'contract','criteria':['has legal terms','has signatures']}]). "
-        "By default uses the first 5 pages. Returns the matched category with confidence scores."
+        "Use this tool whenever you need to identify a document type from candidate categories "
+        "instead of writing your own classifier. "
+        "Pass categories like [{'category':'invoice','criteria':['has billing info','has line items']}]. "
+        "Use page_range for targeted classification and document_metadata when external context helps. "
+        "Returns the matched category, confidence scores, and job_id for get_job. "
+        "See https://docs.reducto.ai"
     ),
 )
 async def classify_document(

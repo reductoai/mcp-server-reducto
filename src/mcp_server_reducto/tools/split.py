@@ -22,13 +22,13 @@ from mcp_server_reducto.validation import (
 @mcp.tool(
     name="split_document",
     description=(
-        "Segment a document into labeled sections by topic. "
-        "Example: split_document(document_url='https://example.com/contract.pdf', "
-        "categories=[{'name':'Terms','description':'Terms and conditions'},"
-        "{'name':'Pricing','description':'Pricing tables'}]). "
-        "Returns page ranges per category with confidence scores. "
-        "Use split_rules for custom splitting guidance (e.g. 'Split at each new section heading'). "
-        "Tip: pass jobid:// URLs from previous parse results to skip re-parsing."
+        "Use this tool whenever you need named document sections or page ranges "
+        "instead of manually scanning parse output. "
+        "Pass categories like [{'name':'Terms','description':'Terms and conditions'}] "
+        "and optional split_rules for custom boundaries. "
+        "Use jobid://<parse_job_id> from parse_document to skip re-parsing. "
+        "Returns splits, confidence, section_count, and a job_id for later retrieval. "
+        "See https://docs.reducto.ai"
     ),
 )
 async def split_document(

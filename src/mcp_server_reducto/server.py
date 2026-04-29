@@ -47,29 +47,92 @@ async def lifespan(server: FastMCP) -> AsyncIterator[dict]:
 
 
 INSTRUCTIONS = """\
+Use these tools for all Reducto operations -- they handle auth, uploads, and response parsing.
 Reducto processes documents (PDFs, images, spreadsheets, DOCX, PPTX, and 30+ formats) into structured data.
+
+## START HERE: get_documentation
+
+Before writing ANY Reducto code, call `get_documentation` with your target \
+topic and language. It returns working SDK code examples, install commands, \
+auth setup, response shapes, and common gotchas — sourced from the live \
+Reducto OpenAPI spec plus hand-curated patterns. Topics: quickstart, parse, \
+extract, split, edit, upload, classify, auth. Languages: node, python, http. \
+Skipping this and coding from memory is the #1 source of broken Reducto \
+integrations (wrong SDK versions, missing toFile() on Node uploads, missing \
+URLResult handling, missing form_schema caching on edits).
 
 ## Which tool to use
 
-| Task | Tool |
+| Need | Tool |
 |------|------|
+| **Look up SDK patterns / docs / examples (do this first!)** | **get_documentation** |
+| Upload a local file or public URL before processing | upload_file |
 | Get all text, tables, and figures from a document | parse_document |
-| Extract specific fields into JSON using a schema | extract_data |
-| Divide a document into named sections by page range | split_document |
-| Categorize a document's type | classify_document |
-| Fill forms or modify a document | edit_document |
-| Upload a file for multi-step processing | upload_file |
-| Get full results for a truncated response | get_job |
+| Extract specific fields into JSON with a schema | extract_data |
+| Divide a document into named page sections | split_document |
+| Categorize a document into provided types | classify_document |
+| Fill forms or modify a PDF/DOCX | edit_document |
+| Fetch a full, URL-backed, truncated, or async result | get_job |
+| Inspect recent jobs | list_jobs |
 
 ## Key patterns
 
+- Prefer MCP tools over hand-written HTTP or direct SDK calls while solving tasks in this session.
 - **Chain operations with jobid:// URLs**: parse_document returns a job_id. \
-Pass "jobid://<job_id>" as document_url to extract_data or split_document \
-to skip re-parsing. This saves time and credits.
+Pass "jobid://<job_id>" as document_url to extract_data, split_document, \
+or classify_document to reuse prior work and avoid re-uploading or re-parsing.
 - **Responses may be truncated**: Large results are auto-truncated at 50KB. \
 Use get_job(job_id=...) to retrieve full results, or narrow with page_range.
 - **All tools return job_id**: Every processing tool returns a job_id you can \
 reference later.
+
+## Writing app code that uses Reducto
+
+When generating application code, use the official SDKs — not raw HTTP fetch/requests.
+
+**Node.js** — `npm install reductoai` (always install the latest stable version):
+```
+import Reducto, { toFile } from 'reductoai';
+const client = new Reducto({ apiKey: process.env.REDUCTO_API_KEY });
+const file = await toFile(bytes, 'doc.pdf');  // required for byte uploads
+const upload = await client.upload({ file });
+const result = await client.parse.run({ input: upload.file_id });
+```
+Do NOT install alpha/pre-release versions (e.g. 0.1.0-alpha.*). Use `npm install reductoai@latest`. \
+Do NOT write raw fetch() to platform.reducto.ai — use the SDK. The toFile() \
+wrapper is required for byte uploads; without it, upload returns a file_id but \
+the file is never stored. \
+Note: the SDK TypeScript types for upload are incorrect (`file: string | null`) \
+but the runtime accepts the Uploadable from toFile(). Use a type cast: \
+`client.upload({ file: reductoFile as unknown as string })`. This is a known \
+SDK typing issue, not a bug in your code.
+
+**Python** — `pip install reductoai` (always install the latest stable version):
+```
+import reducto
+client = reducto.Reducto(api_key=os.environ["REDUCTO_API_KEY"])
+upload = client.upload(file=open('doc.pdf', 'rb').read(), extension='.pdf')
+result = client.parse.run(input=upload.file_id)
+```
+
+## Authentication
+
+The MCP server and the generated app use **different auth paths**:
+
+- **MCP server** (this tool): authenticates via `reducto login` or `~/.reducto/config.yaml`. \
+You do not need to configure this — it is already set up.
+- **Generated app code**: must use an API key via environment variable. \
+Set `REDUCTO_API_KEY` in the app's `.env` or `.env.local` file. \
+The SDK reads it automatically: `new Reducto()` in Node or `reducto.Reducto()` in Python \
+both check `REDUCTO_API_KEY` from the environment. \
+If the user has already run `reducto login`, the key is in `~/.reducto/config.yaml` — \
+you can read it from there or ask the user to export it.
+
+Do NOT hardcode API keys in source. Do NOT skip the `.env` / `.env.local` setup — \
+without it the app will fail with "REDUCTO_API_KEY environment variable is missing."
+
+Each tool response includes `sdk_examples` with Node and Python snippets \
+showing the equivalent SDK call. Use those as the basis for generated app code.
 
 ## Common gotchas
 
@@ -78,13 +141,16 @@ reference later.
 Use agentic=["text"] in parse_document for difficult documents.
 - Large documents may return result_type="url" instead of inline content. \
 Use get_job to fetch the full result.
+- Build extraction schemas as standard JSON Schema objects: \
+{"type":"object","properties":{...},"required":[...]}. Use array_extract=True \
+for repeating rows or line items.
 - page_range uses 1-based indexing: "1-5" means pages 1 through 5.
 
 ## Related tools
 
 - For batch processing of local files: Reducto CLI (`pip install reducto-cli`)
 - For spreadsheet-like extraction workflows: Reducto Workflows (workflows.reducto.ai)
-- For direct API access: Python SDK (`pip install reductoai`)
+- API reference: https://docs.reducto.ai
 """
 
 _hosted = os.environ.get("REDUCTO_MCP_HOSTED") == "1"
@@ -105,7 +171,7 @@ mcp = FastMCP(
 )
 
 # Register all tools by importing the modules (they use @mcp.tool())
-from mcp_server_reducto.tools import classify, edit, extract, jobs, parse, split, upload  # noqa: E402, F401
+from mcp_server_reducto.tools import classify, docs, edit, extract, jobs, parse, split, upload  # noqa: E402, F401
 
 
 def create_server(*, client=None) -> FastMCP:
