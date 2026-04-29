@@ -155,16 +155,22 @@ class ClaudeCodeHarness:
         mcp_repo: Path = REPO_ROOT,
         timeout_s: int = 600,
         bare: bool = False,
+        no_mcp: bool = False,
     ) -> None:
         """
         bare=True gives full eval isolation (no user CLAUDE.md/hooks/plugins) but
         requires ANTHROPIC_API_KEY — OAuth/keychain auth is ignored under --bare.
         Default off so local iteration uses whatever auth is already configured.
+
+        no_mcp=True skips wiring the Reducto MCP server (no --mcp-config flags). Used
+        for A/B testing — measures what the agent does with reducto in training memory
+        but no MCP tools available. Should be paired with skipping the setup prelude.
         """
         self.model = model
         self.mcp_repo = mcp_repo
         self.timeout_s = timeout_s
         self.bare = bare
+        self.no_mcp = no_mcp
 
     def prepare_working_dir(
         self,
@@ -199,8 +205,6 @@ class ClaudeCodeHarness:
         on_event: Callable[[dict[str, Any]], None] | None = None,
     ) -> HarnessResult:
         session_id = str(uuid.uuid4())
-        mcp_config_path = working_dir / ".reducto-eval-mcp.json"
-        mcp_config_path.write_text(json.dumps(_mcp_config(self.mcp_repo), indent=2))
 
         cmd = ["claude"]
         if self.bare:
@@ -209,8 +213,12 @@ class ClaudeCodeHarness:
             "--print",
             "--output-format", "stream-json",
             "--verbose",  # required by stream-json
-            "--mcp-config", str(mcp_config_path),
-            "--strict-mcp-config",
+        ]
+        if not self.no_mcp:
+            mcp_config_path = working_dir / ".reducto-eval-mcp.json"
+            mcp_config_path.write_text(json.dumps(_mcp_config(self.mcp_repo), indent=2))
+            cmd += ["--mcp-config", str(mcp_config_path), "--strict-mcp-config"]
+        cmd += [
             "--dangerously-skip-permissions",
             "--model", self.model,
             "--session-id", session_id,
@@ -290,6 +298,7 @@ def main() -> None:
     parser.add_argument("scenario", type=Path, help="scenario yaml path")
     parser.add_argument("--model", default="sonnet")
     parser.add_argument("--bare", action="store_true", help="use --bare (requires ANTHROPIC_API_KEY)")
+    parser.add_argument("--no-mcp", action="store_true", help="A/B baseline: don't wire the reducto mcp, skip the setup prelude")
     parser.add_argument("--out", type=Path, help="output dir for transcript/meta (default: reports/<run_id>/<scenario>/)")
     parser.add_argument("--verbose", "-v", action="store_true", help="stream events to stdout")
     args = parser.parse_args()
@@ -303,20 +312,25 @@ def main() -> None:
     fixtures = [fixtures_root / f for f in scenario.get("fixture", []) if (fixtures_root / f).exists()]
 
     # Prepend the shared setup/usage prelude so every scenario sees the reducto mcp setup doc.
-    # Keeps scenarios focused on task-specific content; central update point for the prelude.
-    prelude_path = REPO_ROOT / "evals" / "scenarios" / "_setup_prelude.md"
-    prelude = prelude_path.read_text() if prelude_path.exists() else ""
-    # Harness note to the agent: mcp is already wired in this session, no need to re-add.
-    harness_note = (
-        "\n> **Note for this session:** the reducto mcp is already installed and connected "
-        "(tools available as `mcp__reducto__*`). skip step 1 and 2 above — go straight to using the tools.\n"
-    )
-    seed = f"{prelude}{harness_note}\n---\n\n## Task\n\n{scenario['seed_prompt']}" if prelude else scenario["seed_prompt"]
+    # Skipped under --no-mcp (the prelude assumes the mcp is wired in, which it isn't).
+    if args.no_mcp:
+        prelude = ""
+        seed = scenario["seed_prompt"]
+    else:
+        prelude_path = REPO_ROOT / "evals" / "scenarios" / "_setup_prelude.md"
+        prelude = prelude_path.read_text() if prelude_path.exists() else ""
+        # Harness note to the agent: mcp is already wired in this session, no need to re-add.
+        harness_note = (
+            "\n> **Note for this session:** the reducto mcp is already installed and connected "
+            "(tools available as `mcp__reducto__*`). skip step 1 and 2 above — go straight to using the tools.\n"
+        )
+        seed = f"{prelude}{harness_note}\n---\n\n## Task\n\n{scenario['seed_prompt']}" if prelude else scenario["seed_prompt"]
 
     run_id = uuid.uuid4().hex[:8]
-    out_dir = args.out or (REPO_ROOT / "evals" / "reports" / run_id / f"{scenario_id}__claude_code__{args.model}")
+    suffix = "no_mcp" if args.no_mcp else "with_mcp"
+    out_dir = args.out or (REPO_ROOT / "evals" / "reports" / run_id / f"{scenario_id}__claude_code__{args.model}__{suffix}")
 
-    harness = ClaudeCodeHarness(model=args.model, bare=args.bare)
+    harness = ClaudeCodeHarness(model=args.model, bare=args.bare, no_mcp=args.no_mcp)
     wd = harness.prepare_working_dir(fixtures=fixtures)
 
     def on_event(sj: dict[str, Any]) -> None:
