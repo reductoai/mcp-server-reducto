@@ -11,10 +11,9 @@ from typing import Literal
 from mcp.server.fastmcp import Context
 from mcp.types import CallToolResult, TextContent
 
-from mcp_server_reducto.docs_bundle import DOCS, META
+from mcp_server_reducto.docs_bundle import DOCS
 from mcp_server_reducto.errors import mcp_error
 from mcp_server_reducto.server import mcp
-
 
 VALID_TOPICS = sorted(DOCS.keys())
 VALID_LANGUAGES = ["node", "python", "http"]
@@ -40,7 +39,8 @@ def _format_topic(topic: str, language: str | None) -> str:
     if language:
         # Single-language: code example + relevant field references
         if language not in entry.get("languages", {}):
-            return f"# {topic}\n\nNo {language} content for this topic. Available: {list(entry.get('languages', {}).keys())}"
+            available = list(entry.get("languages", {}).keys())
+            return f"# {topic}\n\nNo {language} content for this topic. Available: {available}"
         parts.append(entry["languages"][language])
         parts.append("")
     else:
