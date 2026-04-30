@@ -21,10 +21,13 @@ from mcp_server_reducto.validation import (
 @mcp.tool(
     name="edit_document",
     description=(
-        "Fill forms or modify a document (PDF/DOCX). "
-        "Example: edit_document(document_url='https://example.com/form.pdf', "
-        "edit_instructions=\"Fill 'Name' with 'Jane Doe' and 'Date' with '2024-01-15'\"). "
-        "Instructions can be natural language. Returns a URL to download the edited document."
+        "Use this tool whenever you need to fill forms or modify a PDF/DOCX "
+        "instead of editing bytes or calling the SDK directly. "
+        "Provide natural-language edit_instructions and a public, reducto://, or jobid:// document_url. "
+        "When the response includes form_schema, cache/reuse it in options.form_schema "
+        "for repeated edits to the same form. "
+        "Returns a download URL for the edited document. "
+        "See https://docs.reducto.ai"
     ),
 )
 async def edit_document(

@@ -14,9 +14,12 @@ from mcp_server_reducto.tools.helpers import get_client
 @mcp.tool(
     name="get_job",
     description=(
-        "Get the status and result of a processing job by job_id. "
-        "Use this to retrieve full results when a previous tool response was truncated, "
-        "or to check the status of an async job."
+        "Use this tool whenever a Reducto response is truncated, async, URLResult, "
+        "or you need to inspect an existing job instead of re-running work. "
+        "Pass the job_id returned by parse_document, extract_data, split_document, "
+        "classify_document, or edit_document. "
+        "Use this before reading fields when result_type=url appears. "
+        "See https://docs.reducto.ai"
     ),
 )
 async def get_job(
@@ -47,7 +50,12 @@ async def get_job(
 
 @mcp.tool(
     name="list_jobs",
-    description="List recent processing jobs. Returns job IDs, statuses, and creation times.",
+    description=(
+        "Use this tool whenever you need recent Reducto job IDs, statuses, "
+        "or creation times instead of guessing prior job IDs. "
+        "Call get_job with a returned job_id to inspect full results or URL-backed output. "
+        "See https://docs.reducto.ai"
+    ),
 )
 async def list_jobs(
     limit: int = 10,
