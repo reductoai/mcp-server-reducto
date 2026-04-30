@@ -98,30 +98,41 @@ def extract_endpoint_info(spec: dict, path: str) -> dict[str, Any]:
     op = spec["paths"][path].get("post") or spec["paths"][path].get("get") or {}
     info: dict[str, Any] = {
         "endpoint": f"POST {path}" if "post" in spec["paths"][path] else f"GET {path}",
-        "summary": op.get("summary", ""),
         "description": (op.get("description") or "")[:500],
     }
 
     # Request body schema fields
-    req = (op.get("requestBody", {}).get("content", {}).get("application/json", {}).get("schema", {}))
+    req = op.get("requestBody", {}).get("content", {}).get("application/json", {}).get("schema", {})
     if req:
-        if "oneOf" in req:
-            # use first option (sync variant)
-            req = resolve_ref(spec, req["oneOf"][0]["$ref"]) if "$ref" in req["oneOf"][0] else req["oneOf"][0]
-        elif "$ref" in req:
-            req = resolve_ref(spec, req["$ref"])
-        info["request_fields"] = schema_summary(spec, req)
+        fields = schema_summary(spec, _resolve_schema(spec, req))
+        if fields:
+            info["request_fields"] = fields
 
-    # Response schema fields (200)
+    # Response schema fields (200) — sometimes empty (e.g. V3ExtractResponse is
+    # additionalProperties: true since the shape is user-defined by their schema).
     resp = op.get("responses", {}).get("200", {}).get("content", {}).get("application/json", {}).get("schema", {})
     if resp:
-        if "anyOf" in resp:
-            resp = resolve_ref(spec, resp["anyOf"][0]["$ref"]) if "$ref" in resp["anyOf"][0] else resp["anyOf"][0]
-        elif "$ref" in resp:
-            resp = resolve_ref(spec, resp["$ref"])
-        info["response_fields"] = schema_summary(spec, resp)
+        fields = schema_summary(spec, _resolve_schema(spec, resp))
+        if fields:
+            info["response_fields"] = fields
 
     return info
+
+
+def _resolve_schema(spec: dict, schema: dict) -> dict:
+    """Pick the first concrete schema from a $ref / oneOf / anyOf wrapper.
+
+    Reducto's spec uses oneOf for sync vs async variants and anyOf for
+    nullable types — for docs, the first branch is always the right one.
+    """
+    for key in ("oneOf", "anyOf"):
+        variants = schema.get(key)
+        if variants:
+            first = variants[0]
+            return resolve_ref(spec, first["$ref"]) if "$ref" in first else first
+    if "$ref" in schema:
+        return resolve_ref(spec, schema["$ref"])
+    return schema
 
 
 def build_bundle(spec: dict) -> dict[str, Any]:
@@ -171,6 +182,11 @@ from __future__ import annotations
 
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(header + body)
+
+    # match repo formatting so the bundle doesn't trip CI
+    import subprocess
+    subprocess.run(["uv", "run", "ruff", "format", str(path)], check=False, capture_output=True)
+
     print(f"wrote {path} ({path.stat().st_size:,} bytes)")
 
 

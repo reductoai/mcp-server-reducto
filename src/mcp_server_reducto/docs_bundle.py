@@ -11,8 +11,8 @@ from __future__ import annotations
 META = {
     "openapi_version": "3.1.0",
     "api_title": "Reducto API",
-    "api_version": "v1.11.66-20-gb7660dad9",
-    "fetched_at": "2026-04-29T00:32:08.120022+00:00",
+    "api_version": "v1.11.66-52-gb7b7a3fe1",
+    "fetched_at": "2026-04-30T02:03:58.550412+00:00",
     "source": "https://platform.reducto.ai/openapi.json",
     "topics": ["auth", "classify", "edit", "extract", "parse", "quickstart", "split", "upload"],
     "languages": ["node", "python", "http"],
@@ -93,7 +93,7 @@ DOCS = {
         },
     },
     "parse": {
-        "summary": "Parse",
+        "summary": "Parse a document into structured chunks (text, tables, figures)",
         "languages": {
             "node": "## Parse — Node.js\n"
             "\n"
@@ -192,10 +192,14 @@ DOCS = {
             "result": "() The response from the document processing service. Note that there can "
             "be two types of responses, Full Result and URL Result. This is due to "
             "limitations on the max return size on HTTPS. If the resp",
+            "parse_mode": "() Which pipeline produced this response. ``lite`` means Reducto "
+            "Flash Lite served the request; ``base`` is the standard pipeline. "
+            "Optional / nullable for forward compatibility — older API instances "
+            "o",
         },
     },
     "extract": {
-        "summary": "Extract",
+        "summary": "Extract structured JSON fields from a document via schema",
         "languages": {
             "node": "## Extract — Node.js\n"
             "\n"
@@ -294,10 +298,9 @@ DOCS = {
             "instructions": "(Instructions) The instructions to use for the extraction.",
             "settings": "(ExtractSettings) The settings to use for the extraction.",
         },
-        "response_fields": {},
     },
     "split": {
-        "summary": "Split",
+        "summary": "Segment a document into named sections",
         "languages": {
             "node": "## Split — Node.js\n"
             "\n"
@@ -371,7 +374,7 @@ DOCS = {
         "response_fields": {"usage": "(ParseUsage)", "result": "() The split result."},
     },
     "edit": {
-        "summary": "Edit",
+        "summary": "Fill forms or modify a PDF/DOCX (with form_schema caching)",
         "languages": {
             "node": "## Edit — Node.js\n"
             "\n"
@@ -464,7 +467,7 @@ DOCS = {
         },
     },
     "upload": {
-        "summary": "Upload",
+        "summary": "Upload a file and get a reducto:// URL",
         "languages": {
             "node": "## Upload — Node.js\n"
             "\n"
@@ -529,7 +532,7 @@ DOCS = {
         "response_fields": {"file_id": "(string)", "presigned_url": "()"},
     },
     "classify": {
-        "summary": "Classify",
+        "summary": "Categorize a document against provided categories",
         "languages": {
             "node": "## Classify — Node.js\n"
             "\n"
