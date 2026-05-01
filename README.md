@@ -317,7 +317,7 @@ Options A and B save the key to `~/.reducto/config.yaml` so you never need to se
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `REDUCTO_API_KEY` | No* | — | API key (or authenticate via `--login`) |
-| `REDUCTO_BASE_URL` | No | `https://platform.reducto.ai` | For EU (`https://eu.reducto.ai`) or on-prem deployments |
+| `REDUCTO_BASE_URL` | No | `https://platform.reducto.ai` | Override the default Reducto API base URL |
 | `REDUCTO_MCP_MAX_RESPONSE_SIZE` | No | `50000` | Response truncation threshold in characters |
 | `REDUCTO_MCP_TIMEOUT` | No | `300` | Request timeout in seconds |
 | `REDUCTO_MCP_TRANSPORT` | No | `stdio` | Transport mode: `stdio` or `http` |
