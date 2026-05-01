@@ -16,7 +16,6 @@ def _reset_caches():
     analytics._machine_id.cache_clear()
     yield
     analytics._get_client.cache_clear()
-    analytics.hash_identifier.cache_clear()
     analytics._machine_id.cache_clear()
 
 
