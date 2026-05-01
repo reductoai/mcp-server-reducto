@@ -9,6 +9,7 @@ dependencies = [
     "reductoai>=0.22.0",
     "pydantic>=2.0",
     "httpx>=0.23.0",
+    "posthog>=3.0",
 ]
 
 [project.optional-dependencies]

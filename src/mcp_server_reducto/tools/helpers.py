@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 from mcp.server.fastmcp import Context
 
 from mcp_server_reducto import __version__
-from mcp_server_reducto.config import CLIENT_ID
+from mcp_server_reducto.config import CLIENT_ID, TRANSPORT_HOSTED, TRANSPORT_STDIO
 
 if TYPE_CHECKING:
     from reducto import AsyncReducto
@@ -39,6 +39,31 @@ def _make_client(api_key: str, *, transport: str | None = None) -> AsyncReducto:
     return AsyncReducto(**kwargs)
 
 
+def resolve_request_api_key(ctx: Context | None) -> tuple[str | None, str]:
+    """Return (api_key_or_None, transport) for the current request.
+
+    Resolution order matches get_client: hosted (per-request) → local (lifespan
+    client). Returns None for the api_key if neither path produces one — callers
+    decide whether that's an error (get_client) or fine (analytics).
+    """
+    from mcp_server_reducto.hosted import request_api_key
+
+    per_request_key = request_api_key.get()
+    if per_request_key is not None:
+        return per_request_key, TRANSPORT_HOSTED
+
+    request_context = getattr(ctx, "_request_context", None) if ctx is not None else None
+    if request_context is not None:
+        lc = getattr(request_context, "lifespan_context", None)
+        if isinstance(lc, dict):
+            client = lc.get("reducto_client")
+            api_key = getattr(client, "api_key", None) if client else None
+            if api_key:
+                return api_key, TRANSPORT_STDIO
+
+    return None, TRANSPORT_STDIO
+
+
 def get_client(ctx: Context) -> AsyncReducto:
     """Get a Reducto client for the current request.
 
@@ -47,20 +72,17 @@ def get_client(ctx: Context) -> AsyncReducto:
     2. Hosted mode: per-request API key from contextvars (set by auth middleware)
     3. Local mode: shared client from lifespan context
     """
-    # Test mode
     server = ctx.fastmcp
     test_client = getattr(server, "_test_client", None)
     if test_client is not None:
         return test_client
 
-    # Hosted mode: per-request API key from auth middleware
     from mcp_server_reducto.hosted import request_api_key
 
     per_request_key = request_api_key.get()
     if per_request_key is not None:
-        return _make_client(per_request_key, transport="hosted")
+        return _make_client(per_request_key, transport=TRANSPORT_HOSTED)
 
-    # Local mode: shared client from lifespan context
     request_context = getattr(ctx, "_request_context", None)
     if request_context is not None:
         lc = getattr(request_context, "lifespan_context", None)

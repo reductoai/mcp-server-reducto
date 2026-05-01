@@ -12,6 +12,7 @@ from typing import Literal
 from mcp.server.fastmcp import Context
 from mcp.types import CallToolResult, TextContent
 
+from mcp_server_reducto.analytics import tracked
 from mcp_server_reducto.docs_bundle import DOCS
 from mcp_server_reducto.errors import mcp_error
 from mcp_server_reducto.server import mcp
@@ -83,6 +84,7 @@ def _format_topic(topic: str, language: str | None) -> str:
         "URLResult handling, form_schema caching for edits, and jobid:// chaining."
     ),
 )
+@tracked("get_documentation")
 async def get_documentation(
     topic: Literal["quickstart", "parse", "extract", "split", "edit", "upload", "classify", "auth"],
     language: Literal["node", "python", "http"] | None = None,

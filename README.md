@@ -322,8 +322,29 @@ Options A and B save the key to `~/.reducto/config.yaml` so you never need to se
 | `REDUCTO_MCP_TIMEOUT` | No | `300` | Request timeout in seconds |
 | `REDUCTO_MCP_TRANSPORT` | No | `stdio` | Transport mode: `stdio` or `http` |
 | `REDUCTO_MCP_PORT` | No | `8000` | Port when using HTTP transport |
+| `REDUCTO_TELEMETRY` | No | `1` | Set to `0` to opt out of anonymous usage telemetry |
 
 *Required only if you haven't run `mcp-server-reducto --login` or `reducto login`.
+
+## Telemetry
+
+The MCP server sends a small amount of anonymous usage telemetry to PostHog so we can understand which tools are used, how often, and from which transport. This helps us prioritize improvements.
+
+**What we collect**
+
+- Server lifecycle events: `mcp.installed` (once per machine, on first run) and `mcp.start` (once per server boot).
+- Per-tool invocation events: `tool.<name>.invoked` with `tool` name, `status` (`ok`/`error`/`exception`), and `latency_ms`.
+- Environment fingerprint on every event: client name and version, transport (`stdio` or `hosted`), Python version, OS platform.
+
+**What we never collect**
+
+- Tool arguments (document URLs, file IDs, schemas, prompts, page ranges).
+- Tool responses or document content.
+- API keys. The user identifier on each event is `sha256(api_key)[:16]`, which is one-way — there is no way to recover the key from an event.
+
+**How to opt out**
+
+Set `REDUCTO_TELEMETRY=0` in the environment that runs the MCP server. The server gracefully no-ops every PostHog call when this is set.
 
 ## Debugging
 

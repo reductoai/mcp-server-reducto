@@ -6,9 +6,13 @@ import contextlib
 import os
 from pathlib import Path
 
-CONFIG_PATH = Path.home() / ".reducto" / "config.yaml"
+REDUCTO_DIR = Path.home() / ".reducto"
+CONFIG_PATH = REDUCTO_DIR / "config.yaml"
 
 CLIENT_ID = "mcp-server-reducto"
+
+TRANSPORT_STDIO = "stdio"
+TRANSPORT_HOSTED = "hosted"
 
 STUDIO_API_URL_DEFAULT = "https://mild-moose-423.convex.site"
 

@@ -7,6 +7,7 @@ from typing import Any
 from mcp.server.fastmcp import Context
 from mcp.types import CallToolResult, TextContent
 
+from mcp_server_reducto.analytics import tracked
 from mcp_server_reducto.errors import handle_sdk_error
 from mcp_server_reducto.response import format_split_response
 from mcp_server_reducto.server import mcp
@@ -31,6 +32,7 @@ from mcp_server_reducto.validation import (
         "See https://docs.reducto.ai"
     ),
 )
+@tracked("split_document")
 async def split_document(
     document_url: str,
     categories: list[dict[str, Any]] | str,
