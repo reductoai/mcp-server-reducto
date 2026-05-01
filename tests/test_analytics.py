@@ -53,7 +53,7 @@ class TestHashIdentifier:
     def test_format(self):
         out = analytics.hash_identifier("anything")
         assert out.startswith("sha256:")
-        assert len(out) == len("sha256:") + 16
+        assert len(out) == len("sha256:") + 32
 
     def test_does_not_expose_plaintext(self):
         secret = "sk_live_supersecret"

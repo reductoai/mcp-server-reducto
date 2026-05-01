@@ -75,9 +75,12 @@ def _get_client() -> Posthog | None:
 
 
 def hash_identifier(value: str) -> str:
-    """Stable hash for an API key (or any user identifier). Never reversible to plaintext."""
+    """Stable hash for an API key (or any user identifier). Never reversible to plaintext.
+
+    32 hex chars = 128 bits — birthday-bound at ~2^64, leaves headroom past 10^18 users.
+    """
     digest = hashlib.sha256(value.encode("utf-8")).hexdigest()
-    return f"sha256:{digest[:16]}"
+    return f"sha256:{digest[:32]}"
 
 
 @functools.lru_cache(maxsize=1)

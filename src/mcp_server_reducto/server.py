@@ -33,9 +33,11 @@ async def lifespan(server: FastMCP) -> AsyncIterator[dict]:
 
     hosted_mode = os.environ.get("REDUCTO_MCP_HOSTED") == "1"
 
+    from mcp_server_reducto.config import TRANSPORT_HOSTED, TRANSPORT_STDIO
+
     if hosted_mode:
         logger.info("Reducto MCP server initialized (hosted mode — per-request auth)")
-        analytics.track_lifespan_start(api_key=None, transport="hosted")
+        analytics.track_lifespan_start(api_key=None, transport=TRANSPORT_HOSTED)
         try:
             yield {}
         finally:
@@ -48,9 +50,9 @@ async def lifespan(server: FastMCP) -> AsyncIterator[dict]:
     api_key = get_api_key()
     client = _make_client(api_key)
     logger.info("Reducto MCP server initialized")
-    analytics.track_lifespan_start(api_key=api_key, transport="stdio")
+    analytics.track_lifespan_start(api_key=api_key, transport=TRANSPORT_STDIO)
     try:
-        yield {"reducto_client": client}
+        yield {"reducto_client": client, "api_key": api_key}
     finally:
         logger.info("Reducto MCP server shutting down")
         analytics.flush()
