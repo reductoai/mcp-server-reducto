@@ -172,15 +172,17 @@ def tracked(event_name: str) -> Callable[[Callable[..., Any]], Callable[..., Any
             except Exception:
                 status = "exception"
                 raise
-            finally:
                 latency_ms = int((time.perf_counter() - start) * 1000)
-                distinct_id, transport = _resolve_distinct_id(ctx)
-                track(
-                    f"tool.{event_name}.invoked",
-                    distinct_id,
-                    {"tool": event_name, "status": status, "latency_ms": latency_ms},
-                    transport=transport,
-                )
+                try:
+                    distinct_id, transport = _resolve_distinct_id(ctx)
+                    track(
+                        f"tool.{event_name}.invoked",
+                        distinct_id,
+                        {"tool": event_name, "status": status, "latency_ms": latency_ms},
+                        transport=transport,
+                    )
+                except Exception:
+                    logger.debug("analytics failed for %s", event_name, exc_info=True)
 
         return wrapper
 
