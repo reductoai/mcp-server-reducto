@@ -74,7 +74,6 @@ def _get_client() -> Posthog | None:
         return None
 
 
-@functools.lru_cache(maxsize=128)
 def hash_identifier(value: str) -> str:
     """Stable hash for an API key (or any user identifier). Never reversible to plaintext."""
     digest = hashlib.sha256(value.encode("utf-8")).hexdigest()
