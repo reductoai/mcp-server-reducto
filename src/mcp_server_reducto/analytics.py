@@ -172,6 +172,7 @@ def tracked(event_name: str) -> Callable[[Callable[..., Any]], Callable[..., Any
             except Exception:
                 status = "exception"
                 raise
+            finally:
                 latency_ms = int((time.perf_counter() - start) * 1000)
                 try:
                     distinct_id, transport = _resolve_distinct_id(ctx)
