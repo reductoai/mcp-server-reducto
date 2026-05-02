@@ -9,6 +9,7 @@ import httpx
 from mcp.server.fastmcp import Context
 from mcp.types import CallToolResult, TextContent
 
+from mcp_server_reducto.analytics import tracked
 from mcp_server_reducto.errors import handle_sdk_error, mcp_error
 from mcp_server_reducto.response import format_upload_response
 from mcp_server_reducto.server import mcp
@@ -39,6 +40,7 @@ def _resolve_path(value: str) -> Path:
         "See https://docs.reducto.ai"
     ),
 )
+@tracked("upload_file")
 async def upload_file(
     file_url: str,
     ctx: Context = None,  # type: ignore[assignment]

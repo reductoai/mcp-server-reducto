@@ -5,6 +5,7 @@ from __future__ import annotations
 from mcp.server.fastmcp import Context
 from mcp.types import CallToolResult, TextContent
 
+from mcp_server_reducto.analytics import tracked
 from mcp_server_reducto.errors import handle_sdk_error
 from mcp_server_reducto.response import format_job_list_response, format_job_response
 from mcp_server_reducto.server import mcp
@@ -22,6 +23,7 @@ from mcp_server_reducto.tools.helpers import get_client
         "See https://docs.reducto.ai"
     ),
 )
+@tracked("get_job")
 async def get_job(
     job_id: str,
     ctx: Context = None,  # type: ignore[assignment]
@@ -57,6 +59,7 @@ async def get_job(
         "See https://docs.reducto.ai"
     ),
 )
+@tracked("list_jobs")
 async def list_jobs(
     limit: int = 10,
     ctx: Context = None,  # type: ignore[assignment]

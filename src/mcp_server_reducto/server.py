@@ -29,12 +29,20 @@ async def lifespan(server: FastMCP) -> AsyncIterator[dict]:
     each request brings its own key via Authorization header. The lifespan
     gracefully skips client creation in that case.
     """
+    from mcp_server_reducto import analytics
+
     hosted_mode = os.environ.get("REDUCTO_MCP_HOSTED") == "1"
+
+    from mcp_server_reducto.config import TRANSPORT_HOSTED, TRANSPORT_STDIO
 
     if hosted_mode:
         logger.info("Reducto MCP server initialized (hosted mode — per-request auth)")
-        yield {}
-        logger.info("Reducto MCP server shutting down")
+        analytics.track_lifespan_start(api_key=None, transport=TRANSPORT_HOSTED)
+        try:
+            yield {}
+        finally:
+            logger.info("Reducto MCP server shutting down")
+            analytics.flush()
         return
 
     from mcp_server_reducto.tools.helpers import _make_client
@@ -42,8 +50,12 @@ async def lifespan(server: FastMCP) -> AsyncIterator[dict]:
     api_key = get_api_key()
     client = _make_client(api_key)
     logger.info("Reducto MCP server initialized")
-    yield {"reducto_client": client}
-    logger.info("Reducto MCP server shutting down")
+    analytics.track_lifespan_start(api_key=api_key, transport=TRANSPORT_STDIO)
+    try:
+        yield {"reducto_client": client, "api_key": api_key}
+    finally:
+        logger.info("Reducto MCP server shutting down")
+        analytics.flush()
 
 
 INSTRUCTIONS = """\
