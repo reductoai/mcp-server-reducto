@@ -42,6 +42,7 @@ That means you can:
 - **Drop document understanding into Claude Desktop** and ask plain-English questions about a 200-page 10-K, an invoice batch, or a stack of insurance claims.
 - **Build agents in Cursor or VS Code** that read PDFs, extract structured fields, and write code against the result — all inside the same loop.
 - **Skip boilerplate** when prototyping. The agent decides which tool to call, when to chain results, and how to handle paging — you just describe what you want.
+- **Code against the latest API surface** — the server exposes a `get_documentation` tool that hands the agent up-to-date Reducto SDK examples, parameter shapes, and response formats on demand, so it doesn't have to fall back on stale training data.
 
 ### Example use cases
 
@@ -61,7 +62,7 @@ That means you can:
 
 ### Option A: Remote server (easiest — no install)
 
-Use the hosted server at `mcp.reducto.ai`. No Python, no local install — just add your API key:
+Use the hosted server at `https://mcp.reducto.ai/mcp`. No Python, no local install — just add your API key:
 
 ```json
 {
@@ -79,7 +80,7 @@ Use the hosted server at `mcp.reducto.ai`. No Python, no local install — just 
 
 Get your API key at [studio.reducto.ai/api-keys](https://studio.reducto.ai/api-keys).
 
-> **Heads up — local files on the hosted server.** The hosted server can't read files off your machine, so `upload_file` works only with public URLs. If you need to push local files through, either use **Option B** below or pre-upload via the [Reducto API](https://docs.reducto.ai) and pass the returned `reducto://` URL.
+> **Heads up — `upload_file` and local paths.** The hosted server runs in the cloud, so it has no view of your local filesystem — `upload_file` will only accept public URLs when used through it. To upload files directly from your machine, use **Option B** below, or pre-upload via the [Reducto API](https://docs.reducto.ai) and pass the returned `reducto://` URL to the hosted server.
 
 ### Option B: Local server (runs on your machine)
 
