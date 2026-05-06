@@ -156,7 +156,7 @@ def get_api_key() -> str:
         "  1. Run: mcp-server-reducto --login  (opens browser, saves key automatically)\n"
         "  2. Run: reducto login  (if you have the Reducto CLI installed)\n"
         "  3. Set REDUCTO_API_KEY environment variable\n"
-        "  4. Get a key at https://app.reducto.ai and add it to your MCP client config"
+        "  4. Get a key at https://studio.reducto.ai/api-keys and add it to your MCP client config"
     )
 
 
