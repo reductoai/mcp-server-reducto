@@ -7,8 +7,8 @@
 <h1 align="center">Reducto MCP Server</h1>
 
 <p align="center">
-  <strong>Give your AI agent production-grade document understanding.</strong><br/>
-  Parse PDFs, extract structured data, split, classify, and edit documents — natively, from any MCP-compatible client.
+  <strong>The complete agentic document platform — wired into your MCP client.</strong><br/>
+  Parse, extract, classify, split, and edit documents from any MCP-compatible agent, backed by the platform leading AI teams use in production.
 </p>
 
 <p align="center">
@@ -22,20 +22,27 @@
 
 ## What is Reducto?
 
-[Reducto](https://reducto.ai) is the document intelligence platform behind teams like Harvey, Scale AI, Vanta, and Toast — over **2 billion pages** processed and counting. We turn messy real-world documents (scanned PDFs, handwritten forms, dense financial filings, multi-language contracts, faxed medical records) into clean, LLM-ready structured data.
+[Reducto](https://reducto.ai) is the agentic document platform for leading AI teams who need enterprise performance at scale. **Billions of pages** processed and counting for teams like Harvey, Scale AI, Vanta, and Toast. We provide a comprehensive toolkit for working with documents the way a human would — combining custom in-house and frontier models to handle messy real-world inputs (scanned PDFs, handwritten forms, dense financial filings, multi-language contracts, faxed medical records) and turn them into reliable, agent-ready output.
 
-The platform is built around four core APIs:
+The platform is organized around three promises:
+
+- **Performance for you** — zero-shot accuracy on long-tail complexity (tables, charts, figures, handwriting, scans), with 12+ models orchestrated under the hood and continuously updated so you don't have to chase the frontier.
+- **Enterprise ready** — hosted, VPC, on-premises, and air-gapped deployment; SOC 2 and HIPAA compliant; zero data retention by default; autoscaling and custom SLAs for bursty production workloads.
+- **Complete toolkit** — one platform covering the full lifecycle of document work — parse, extract, classify, split, edit, and more — across 30+ file types, not just PDFs.
+
+The core APIs exposed through this MCP server:
 
 - **Parse** — layout-aware OCR + VLM pipeline that captures text, tables, figures, and bounding boxes
 - **Extract** — schema-driven structured data extraction with citations
 - **Split** — segment multi-document files into individual units
+- **Classify** — route incoming files into your own taxonomy
 - **Edit** — fill forms and modify PDFs/DOCX without templates
 
-If you're a developer building anything that touches documents or unstructured data — invoice automation, contract analysis, knowledge-base ingestion, claims processing, RAG over PDFs, agentic workflows over filings — Reducto handles the messy parts so you don't have to.
+If you're a developer or AI team building anything that touches documents — invoice automation, contract analysis, knowledge-base ingestion, claims processing, RAG over PDFs, agentic workflows over filings — Reducto handles the messy parts so you don't have to stitch together OCR, parsers, extractors, and form engines yourself.
 
 ## Why an MCP server?
 
-The [Model Context Protocol](https://modelcontextprotocol.io) is the open standard for connecting AI agents to tools and data. This server lets any MCP-compatible client — Claude Desktop, Claude Code, Cursor, VS Code (Copilot), Windsurf, the OpenAI Agents SDK, and others — call Reducto's APIs directly, without writing glue code.
+The [Model Context Protocol](https://modelcontextprotocol.io) is the open standard for connecting AI agents to tools and data. This server lets any MCP-compatible client — Claude Desktop, Claude Code, Cursor, VS Code (Copilot), Windsurf, the OpenAI Agents SDK, and others — call Reducto's platform directly, so your agent gets every document task it needs (reading, understanding, extracting, routing, filling) handled by one toolkit, without writing glue code.
 
 That means you can:
 
@@ -645,6 +652,6 @@ REDUCTO_API_KEY=your-key .venv/bin/python -m pytest tests/integration/ -v
 ---
 
 <p align="center">
-  <strong>Built by <a href="https://reducto.ai">Reducto</a> — we're hiring.</strong><br/>
-  <a href="https://x.com/reductoai">Follow @reductoai on X</a> · <a href="https://reducto.ai/careers">Open roles →</a>
+  <strong>Document work starts here.</strong><br/>
+  Built by <a href="https://reducto.ai">Reducto</a> — we're hiring. <a href="https://x.com/reductoai">Follow @reductoai on X</a> · <a href="https://reducto.ai/careers">Open roles →</a>
 </p>
