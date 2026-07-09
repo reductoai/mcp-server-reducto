@@ -582,7 +582,7 @@ The MCP server sends a small amount of anonymous usage telemetry to PostHog so w
 
 - Server lifecycle events: `mcp.installed` (once per machine, on first run) and `mcp.start` (once per server boot).
 - Per-tool invocation events: `tool.<name>.invoked` with `tool` name, `status` (`ok`/`error`/`exception`), and `latency_ms`.
-- Environment fingerprint on every event: client name and version, transport (`stdio` or `hosted`), Python version, OS platform.
+- Environment fingerprint on every event: product surface, client name and version, transport (`stdio` or `hosted`), Python version, OS platform.
 
 **What we never collect**
 

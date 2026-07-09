@@ -65,6 +65,13 @@ class TestTrack:
         monkeypatch.setenv("REDUCTO_TELEMETRY", "0")
         analytics.track("some.event", "user_1", {"x": 1})
 
+    def test_adds_product_surface(self, fake_posthog):
+        analytics.track("some.event", "user_1", {"x": 1, "product_surface": "override"})
+
+        assert (
+            fake_posthog.capture.call_args.kwargs["properties"]["product_surface"] == analytics.POSTHOG_PRODUCT_SURFACE
+        )
+
     def test_swallows_capture_exceptions(self, fake_posthog):
         fake_posthog.capture.side_effect = RuntimeError("ingest down")
         analytics.track("x.y", "u", {})
@@ -84,6 +91,7 @@ class TestTrackedDecorator:
         assert kwargs["properties"]["status"] == "ok"
         assert kwargs["properties"]["latency_ms"] >= 0
         assert kwargs["properties"]["client"] == "mcp-server-reducto"
+        assert kwargs["properties"]["product_surface"] == analytics.POSTHOG_PRODUCT_SURFACE
 
     @pytest.mark.asyncio
     async def test_records_error_status_on_isError_result(self, fake_posthog):
