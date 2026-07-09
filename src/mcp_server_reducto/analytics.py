@@ -33,8 +33,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("mcp-server-reducto.analytics")
 
-POSTHOG_PROJECT_KEY = "phc_zoZUyqoUX2QX6ZXAhQZ5xEDBCoVCaQ9EfGMtP3QtJRPG"
+POSTHOG_PROJECT_KEY = "phc_h82qw7GTTqctSa4NTcp5S79gLs7FGJ0zicstm8E3kVl"
 POSTHOG_HOST = "https://us.i.posthog.com"
+POSTHOG_PRODUCT_SURFACE = "mcp"
 
 _INSTALL_SENTINEL = REDUCTO_DIR / ".mcp_installed"
 _MACHINE_ID_PATH = REDUCTO_DIR / ".mcp_machine_id"
@@ -111,6 +112,7 @@ def track(
     payload: dict[str, Any] = {**_BASE_PROPERTIES, "transport": transport}
     if properties:
         payload.update(properties)
+    payload["product_surface"] = POSTHOG_PRODUCT_SURFACE
     try:
         client.capture(distinct_id=distinct_id, event=event, properties=payload)
     except Exception as e:  # pragma: no cover
