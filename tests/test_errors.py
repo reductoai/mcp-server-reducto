@@ -11,7 +11,7 @@ from mcp_server_reducto.errors import handle_sdk_error, mcp_error
 class TestMcpError:
     def test_creates_error_result(self) -> None:
         result = mcp_error("Something failed", guidance="Try again")
-        assert result.isError is True
+        assert result.is_error is True
         assert len(result.content) == 1
         content = result.content[0]
         assert isinstance(content, TextContent)
@@ -30,7 +30,7 @@ def _make_response(status: int) -> httpx.Response:
 class TestHandleSdkError:
     def _check(self, result, *substrings: str) -> None:
         """Assert result is an error with TextContent containing all substrings."""
-        assert result.isError is True
+        assert result.is_error is True
         content = result.content[0]
         assert isinstance(content, TextContent)
         for s in substrings:
@@ -106,7 +106,7 @@ class TestHandleSdkError:
             body=None,
         )
         result = handle_sdk_error(e)
-        assert result.isError is True
+        assert result.is_error is True
         content = result.content[0]
         assert isinstance(content, TextContent)
         assert "not found" in content.text.lower()
@@ -116,7 +116,7 @@ class TestHandleSdkError:
 
         e = APITimeoutError(request=_make_request())
         result = handle_sdk_error(e)
-        assert result.isError is True
+        assert result.is_error is True
         content = result.content[0]
         assert isinstance(content, TextContent)
         assert "timed out" in content.text.lower()
@@ -136,7 +136,7 @@ class TestHandleSdkError:
             body=None,
         )
         result = handle_sdk_error(e)
-        assert result.isError is True
+        assert result.is_error is True
         content = result.content[0]
         assert isinstance(content, TextContent)
         assert "service error" in content.text.lower()

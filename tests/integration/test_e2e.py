@@ -35,7 +35,7 @@ def ctx(client):
     ctx = MagicMock()
     server = MagicMock()
     server._test_client = client
-    ctx.fastmcp = server
+    ctx.mcp_server = server
     return ctx
 
 
@@ -48,7 +48,7 @@ class TestParseIntegration:
             document_url=TEST_PDF_URL,
             ctx=ctx,
         )
-        assert result.isError is not True
+        assert result.is_error is not True
         data = json.loads(result.content[0].text)
         assert "job_id" in data
         assert data["num_blocks"] > 0
@@ -62,7 +62,7 @@ class TestParseIntegration:
             table_output_format="html",
             ctx=ctx,
         )
-        assert result.isError is not True
+        assert result.is_error is not True
 
 
 class TestExtractIntegration:
@@ -80,7 +80,7 @@ class TestExtractIntegration:
             },
             ctx=ctx,
         )
-        assert result.isError is not True
+        assert result.is_error is not True
         data = json.loads(result.content[0].text)
         assert "result" in data
 
@@ -94,7 +94,7 @@ class TestJobIdChaining:
 
         # Step 1: Parse
         parse_result = await parse_document(document_url=TEST_PDF_URL, ctx=ctx)
-        assert parse_result.isError is not True
+        assert parse_result.is_error is not True
         parse_data = json.loads(parse_result.content[0].text)
         job_id = parse_data["job_id"]
 
@@ -104,7 +104,7 @@ class TestJobIdChaining:
             schema={"type": "object", "properties": {"title": {"type": "string"}}},
             ctx=ctx,
         )
-        assert extract_result.isError is not True
+        assert extract_result.is_error is not True
 
 
 class TestGetJobIntegration:
@@ -118,4 +118,4 @@ class TestGetJobIntegration:
         job_id = parse_data["job_id"]
 
         job_result = await get_job(job_id=job_id, ctx=ctx)
-        assert job_result.isError is not True
+        assert job_result.is_error is not True

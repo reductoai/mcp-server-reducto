@@ -1,7 +1,7 @@
 """Map Reducto SDK exceptions to MCP-friendly error responses.
 
 Following the Sentry pattern: tool errors are returned as formatted text
-with isError=True, never thrown as exceptions. This ensures the LLM always
+with is_error=True, never thrown as exceptions. This ensures the LLM always
 gets actionable guidance.
 """
 
@@ -30,7 +30,7 @@ def mcp_error(message: str, *, guidance: str) -> CallToolResult:
     text = f"Error: {message}\n\nWhat to do: {guidance}"
     return CallToolResult(
         content=[TextContent(type="text", text=text)],
-        isError=True,
+        is_error=True,
     )
 
 

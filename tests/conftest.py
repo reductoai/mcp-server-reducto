@@ -161,8 +161,8 @@ def mock_client() -> AsyncMock:
 def mock_ctx(mock_client: AsyncMock) -> MagicMock:
     """Create a mock MCP Context that returns the mock client."""
     ctx = MagicMock()
-    # Set up the fastmcp server mock with _test_client
+    # Set up the mcp_server mock with _test_client
     server = MagicMock()
     server._test_client = mock_client
-    ctx.fastmcp = server
+    ctx.mcp_server = server
     return ctx

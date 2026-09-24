@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from mcp.server.fastmcp import Context
+from mcp.server.mcpserver import Context
 from mcp.types import CallToolResult, TextContent
 
 from mcp_server_reducto.analytics import tracked
@@ -45,7 +45,7 @@ async def edit_document(
     except ValidationError as e:
         return CallToolResult(
             content=[TextContent(type="text", text=f"Validation error: {e}\n\nWhat to do: {e.guidance}")],
-            isError=True,
+            is_error=True,
         )
 
     try:

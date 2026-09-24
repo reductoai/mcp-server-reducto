@@ -94,12 +94,12 @@ class TestTrackedDecorator:
         assert kwargs["properties"]["product_surface"] == analytics.POSTHOG_PRODUCT_SURFACE
 
     @pytest.mark.asyncio
-    async def test_records_error_status_on_isError_result(self, fake_posthog):
+    async def test_records_error_status_on_is_error_result(self, fake_posthog):
         @analytics.tracked("toy_tool")
         async def toy(ctx=None):
             return CallToolResult(
                 content=[TextContent(type="text", text="bad")],
-                isError=True,
+                is_error=True,
             )
 
         await toy()
