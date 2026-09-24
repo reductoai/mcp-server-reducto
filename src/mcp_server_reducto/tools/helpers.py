@@ -40,11 +40,7 @@ def _make_client(api_key: str, *, transport: str | None = None) -> AsyncReducto:
 
 
 def _lifespan_context(ctx: Context | None) -> dict | None:
-    """Return the lifespan context dict for the current request, if any.
-
-    In mcp 2.x, Context.request_context raises ValueError when accessed
-    outside of an active request, so it can't be guarded with getattr.
-    """
+    """Return the lifespan context dict for the current request, or None outside a request."""
     if ctx is None:
         return None
     try:
