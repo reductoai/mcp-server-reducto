@@ -99,7 +99,7 @@ class TestTrackedDecorator:
         async def toy(ctx=None):
             return CallToolResult(
                 content=[TextContent(type="text", text="bad")],
-                isError=True,
+                is_error=True,
             )
 
         await toy()

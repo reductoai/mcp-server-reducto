@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from mcp.server.fastmcp import Context
+from mcp.server.mcpserver import Context
 
 from mcp_server_reducto import __version__
 from mcp_server_reducto.config import CLIENT_ID, TRANSPORT_HOSTED, TRANSPORT_STDIO
@@ -52,7 +52,7 @@ def resolve_request_api_key(ctx: Context | None) -> tuple[str | None, str]:
     if per_request_key is not None:
         return per_request_key, TRANSPORT_HOSTED
 
-    request_context = getattr(ctx, "_request_context", None) if ctx is not None else None
+    request_context = getattr(ctx, "request_context", None) if ctx is not None else None
     if request_context is not None:
         lc = getattr(request_context, "lifespan_context", None)
         if isinstance(lc, dict):
@@ -71,7 +71,7 @@ def get_client(ctx: Context) -> AsyncReducto:
     2. Hosted mode: per-request API key from contextvars (set by auth middleware)
     3. Local mode: shared client from lifespan context
     """
-    server = ctx.fastmcp
+    server = ctx.mcp_server
     test_client = getattr(server, "_test_client", None)
     if test_client is not None:
         return test_client
@@ -80,7 +80,7 @@ def get_client(ctx: Context) -> AsyncReducto:
     if transport == TRANSPORT_HOSTED and api_key:
         return _make_client(api_key, transport=TRANSPORT_HOSTED)
 
-    request_context = getattr(ctx, "_request_context", None)
+    request_context = getattr(ctx, "request_context", None)
     if request_context is not None:
         lc = getattr(request_context, "lifespan_context", None)
         if isinstance(lc, dict) and "reducto_client" in lc:
