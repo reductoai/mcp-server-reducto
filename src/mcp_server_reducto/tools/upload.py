@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 
 import httpx
-from mcp.server.fastmcp import Context
+from mcp.server.mcpserver import Context
 from mcp.types import CallToolResult, TextContent
 
 from mcp_server_reducto.analytics import tracked

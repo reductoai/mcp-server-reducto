@@ -1,6 +1,6 @@
 """Reducto MCP server entrypoint.
 
-Creates a FastMCP instance with lifespan-managed Reducto client,
+Creates an MCPServer instance with lifespan-managed Reducto client,
 registers all tools, and provides transport selection.
 """
 
@@ -12,7 +12,7 @@ import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 
 from mcp_server_reducto.config import get_api_key
 
@@ -22,7 +22,7 @@ logger = logging.getLogger("mcp-server-reducto")
 
 
 @asynccontextmanager
-async def lifespan(server: FastMCP) -> AsyncIterator[dict]:
+async def lifespan(server: MCPServer) -> AsyncIterator[dict]:
     """Initialize the Reducto client for local (single-tenant) mode.
 
     In hosted mode (mcp.reducto.ai), there's no server-wide API key —
@@ -176,18 +176,17 @@ if _hosted:
 
     _transport_security = TransportSecuritySettings(enable_dns_rebinding_protection=False)
 
-mcp = FastMCP(
+mcp = MCPServer(
     name="Reducto",
     instructions=INSTRUCTIONS,
     lifespan=lifespan,
-    transport_security=_transport_security,
 )
 
 # Register all tools by importing the modules (they use @mcp.tool())
 from mcp_server_reducto.tools import classify, docs, edit, extract, jobs, parse, split, upload  # noqa: E402, F401
 
 
-def create_server(*, client=None) -> FastMCP:
+def create_server(*, client=None) -> MCPServer:
     """Create a server instance, optionally with a pre-configured client (for testing)."""
     if client is not None:
         # For testing: inject a mock client into the server's context
@@ -242,8 +241,7 @@ def main() -> None:
     if transport == "http":
         port = get_port()
         logger.info("Starting Reducto MCP server on HTTP port %d", port)
-        mcp.settings.port = port
-        mcp.run(transport="streamable-http")
+        mcp.run(transport="streamable-http", port=port, transport_security=_transport_security)
     else:
         logger.info("Starting Reducto MCP server on stdio")
         mcp.run(transport="stdio")

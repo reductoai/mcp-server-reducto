@@ -25,7 +25,7 @@ class TestParseDocument:
             document_url="https://example.com/doc.pdf",
             ctx=mock_ctx,
         )
-        assert result.isError is not True
+        assert result.is_error is not True
         data = json.loads(result.content[0].text)
         assert data["job_id"] == "job_parse_123"
         assert data["num_blocks"] == 3
@@ -42,7 +42,7 @@ class TestParseDocument:
             add_page_markers=True,
             ctx=mock_ctx,
         )
-        assert result.isError is not True
+        assert result.is_error is not True
         call_kwargs = mock_client.parse.run.call_args.kwargs
         assert call_kwargs["formatting"]["table_output_format"] == "html"
         assert call_kwargs["formatting"]["add_page_markers"] is True
@@ -54,7 +54,7 @@ class TestParseDocument:
             page_range="1-5",
             ctx=mock_ctx,
         )
-        assert result.isError is not True
+        assert result.is_error is not True
         call_kwargs = mock_client.parse.run.call_args.kwargs
         assert call_kwargs["settings"]["page_range"] == "1-5"
 
@@ -107,7 +107,7 @@ class TestParseDocument:
             document_url="ftp://example.com/doc.pdf",
             ctx=mock_ctx,
         )
-        assert result.isError is True
+        assert result.is_error is True
         assert "Invalid URL scheme" in result.content[0].text
 
     @pytest.mark.asyncio
@@ -117,7 +117,7 @@ class TestParseDocument:
             table_output_format="xml",
             ctx=mock_ctx,
         )
-        assert result.isError is True
+        assert result.is_error is True
         assert "Invalid table_output_format" in result.content[0].text
 
     @pytest.mark.asyncio
@@ -127,7 +127,7 @@ class TestParseDocument:
             chunk_mode="invalid",
             ctx=mock_ctx,
         )
-        assert result.isError is True
+        assert result.is_error is True
 
     @pytest.mark.asyncio
     async def test_sdk_error_handled(self, mock_ctx: MagicMock, mock_client: AsyncMock) -> None:
@@ -143,7 +143,7 @@ class TestParseDocument:
             document_url="https://example.com/doc.pdf",
             ctx=mock_ctx,
         )
-        assert result.isError is True
+        assert result.is_error is True
         assert "Invalid request" in result.content[0].text
 
     @pytest.mark.asyncio
@@ -152,7 +152,7 @@ class TestParseDocument:
             document_url="jobid://previous_job_123",
             ctx=mock_ctx,
         )
-        assert result.isError is not True
+        assert result.is_error is not True
         call_kwargs = mock_client.parse.run.call_args.kwargs
         assert call_kwargs["input"] == "jobid://previous_job_123"
 
@@ -168,7 +168,7 @@ class TestExtractData:
             schema={"type": "object", "properties": {"amount": {"type": "number"}}},
             ctx=mock_ctx,
         )
-        assert result.isError is not True
+        assert result.is_error is not True
         data = json.loads(result.content[0].text)
         assert data["job_id"] == "job_extract_456"
         assert data["result"]["name"] == "Acme Corp"
@@ -219,7 +219,7 @@ class TestExtractData:
             schema='{"type": "object", "properties": {"name": {"type": "string"}}}',
             ctx=mock_ctx,
         )
-        assert result.isError is not True
+        assert result.is_error is not True
         call_kwargs = mock_client.extract.run.call_args.kwargs
         assert call_kwargs["instructions"]["schema"]["type"] == "object"
 
@@ -230,7 +230,7 @@ class TestExtractData:
             schema="{bad json}",
             ctx=mock_ctx,
         )
-        assert result.isError is True
+        assert result.is_error is True
         assert "Invalid JSON" in result.content[0].text
 
     @pytest.mark.asyncio
@@ -240,7 +240,7 @@ class TestExtractData:
             schema={"type": "object"},
             ctx=mock_ctx,
         )
-        assert result.isError is True
+        assert result.is_error is True
 
 
 # ─── Split ───────────────────────────────────────────────────────────
@@ -257,7 +257,7 @@ class TestSplitDocument:
             ],
             ctx=mock_ctx,
         )
-        assert result.isError is not True
+        assert result.is_error is not True
         data = json.loads(result.content[0].text)
         assert len(data["splits"]) == 3
 
@@ -283,7 +283,7 @@ class TestSplitDocument:
             categories='[{"name": "A", "description": "Section A"}]',
             ctx=mock_ctx,
         )
-        assert result.isError is not True
+        assert result.is_error is not True
 
     @pytest.mark.asyncio
     async def test_empty_categories(self, mock_ctx: MagicMock) -> None:
@@ -292,7 +292,7 @@ class TestSplitDocument:
             categories=[],
             ctx=mock_ctx,
         )
-        assert result.isError is True
+        assert result.is_error is True
         assert "must not be empty" in result.content[0].text
 
 
@@ -310,7 +310,7 @@ class TestClassifyDocument:
             ],
             ctx=mock_ctx,
         )
-        assert result.isError is not True
+        assert result.is_error is not True
         data = json.loads(result.content[0].text)
         assert data["category"] == "invoice"
         assert len(data["category_confidences"]) == 3
@@ -337,7 +337,7 @@ class TestClassifyDocument:
             categories=[{"category": "x", "criteria": ["y"]}],
             ctx=mock_ctx,
         )
-        assert result.isError is True
+        assert result.is_error is True
 
 
 # ─── Edit ────────────────────────────────────────────────────────────
@@ -351,7 +351,7 @@ class TestEditDocument:
             edit_instructions="Fill in the name field with 'John Doe'",
             ctx=mock_ctx,
         )
-        assert result.isError is not True
+        assert result.is_error is not True
         data = json.loads(result.content[0].text)
         assert "document_url" in data
 
@@ -378,7 +378,7 @@ class TestEditDocument:
             edit_instructions="test",
             ctx=mock_ctx,
         )
-        assert result.isError is True
+        assert result.is_error is True
 
 
 # ─── Upload ──────────────────────────────────────────────────────────
@@ -402,7 +402,7 @@ class TestUploadFile:
                 file_url="https://example.com/doc.pdf",
                 ctx=mock_ctx,
             )
-        assert result.isError is not True
+        assert result.is_error is not True
         data = json.loads(result.content[0].text)
         assert data["file_id"] == "reducto://abc123"
 
@@ -417,7 +417,7 @@ class TestUploadFile:
             file_url="ftp://bad.com/doc",
             ctx=mock_ctx,
         )
-        assert result.isError is True
+        assert result.is_error is True
 
 
 # ─── Jobs ────────────────────────────────────────────────────────────
@@ -430,7 +430,7 @@ class TestGetJob:
             job_id="job_parse_123",
             ctx=mock_ctx,
         )
-        assert result.isError is not True
+        assert result.is_error is not True
         data = json.loads(result.content[0].text)
         assert data["job_id"] == "job_parse_123"
         assert data["status"] == "Completed"
@@ -440,20 +440,20 @@ class TestGetJob:
     @pytest.mark.asyncio
     async def test_empty_job_id(self, mock_ctx: MagicMock) -> None:
         result = await get_job(job_id="", ctx=mock_ctx)
-        assert result.isError is True
+        assert result.is_error is True
         assert "required" in result.content[0].text
 
     @pytest.mark.asyncio
     async def test_whitespace_job_id(self, mock_ctx: MagicMock) -> None:
         result = await get_job(job_id="   ", ctx=mock_ctx)
-        assert result.isError is True
+        assert result.is_error is True
 
 
 class TestListJobs:
     @pytest.mark.asyncio
     async def test_basic_list(self, mock_ctx: MagicMock, mock_client: AsyncMock) -> None:
         result = await list_jobs(ctx=mock_ctx)
-        assert result.isError is not True
+        assert result.is_error is not True
 
         mock_client.job.get_all.assert_called_once_with(limit=10)
 
@@ -473,5 +473,5 @@ class TestListJobs:
             body=None,
         )
         result = await list_jobs(ctx=mock_ctx)
-        assert result.isError is True
+        assert result.is_error is True
         assert "Authentication" in result.content[0].text

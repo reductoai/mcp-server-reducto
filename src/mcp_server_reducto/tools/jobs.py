@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from mcp.server.fastmcp import Context
+from mcp.server.mcpserver import Context
 from mcp.types import CallToolResult, TextContent
 
 from mcp_server_reducto.analytics import tracked
@@ -37,7 +37,7 @@ async def get_job(
                     text="Error: job_id is required.\n\nWhat to do: Provide a valid job_id.",
                 )
             ],
-            isError=True,
+            is_error=True,
         )
 
     try:

@@ -1,6 +1,6 @@
 """Hosted multi-tenant MCP server for mcp.reducto.ai.
 
-Wraps the FastMCP streamable-http app with auth middleware that
+Wraps the MCPServer streamable-http app with auth middleware that
 extracts the API key from the Authorization header. Each request
 gets its own Reducto client — no shared API key needed on the server.
 """
@@ -70,10 +70,14 @@ class BearerAuthMiddleware:
 
 def create_hosted_app() -> ASGIApp:
     """Create the hosted ASGI app: auth middleware wrapping the MCP Starlette app."""
+    from mcp.server.transport_security import TransportSecuritySettings
+
     from mcp_server_reducto.server import mcp
 
-    # Get the Starlette app from FastMCP (includes MCP routes + lifespan)
-    mcp_starlette = mcp.streamable_http_app()
+    # Get the Starlette app from MCPServer (includes MCP routes + lifespan)
+    # DNS rebinding protection is disabled here — we do our own auth.
+    transport_security = TransportSecuritySettings(enable_dns_rebinding_protection=False)
+    mcp_starlette = mcp.streamable_http_app(transport_security=transport_security)
 
     # Wrap it with our auth middleware
     return BearerAuthMiddleware(mcp_starlette)

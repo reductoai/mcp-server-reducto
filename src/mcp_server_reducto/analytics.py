@@ -159,8 +159,8 @@ def tracked(event_name: str) -> Callable[[Callable[..., Any]], Callable[..., Any
     """Decorator: fire tool.<event_name>.invoked with status + latency.
 
     Place between @mcp.tool(...) and the async def so it wraps the function
-    before fastmcp registers it. functools.wraps preserves the signature for
-    fastmcp's parameter introspection.
+    before the SDK registers it. functools.wraps preserves the signature for
+    the SDK's parameter introspection.
     """
 
     def decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
@@ -171,7 +171,7 @@ def tracked(event_name: str) -> Callable[[Callable[..., Any]], Callable[..., Any
             status = "ok"
             try:
                 result: CallToolResult = await fn(*args, **kwargs)
-                if getattr(result, "isError", False):
+                if result.is_error:
                     status = "error"
                 return result
             except Exception:
